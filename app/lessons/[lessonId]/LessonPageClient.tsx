@@ -180,7 +180,7 @@ export default function LessonPageClient({ lessonId }: LessonPageClientProps) {
       {quiz ? (
         <section>
           <h2 style={{ fontSize: 24, marginBottom: 12 }}>
-            Quiz: {quiz.title}
+            {quiz.title}
           </h2>
 
           {questions.length === 0 && (
