@@ -1,258 +1,199 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-// If your project uses a different path, copy it from your other working file
-import { supabase } from '@/lib/supabaseClient';
+import React, { useState, FormEvent } from 'react';
 
 type Lesson = {
   id: string;
   title: string;
   content: string | null;
+  videoUrl: string | null;
 };
 
 type Quiz = {
   id: string;
   title: string;
-} | null;
-
-type Question = {
-  id: string;
-  question_text: string;
 };
 
-type Option = {
+type QuizOption = {
   id: string;
-  question_id: string;
   option_text: string;
   is_correct: boolean;
-  sort_order: number | null;
+  sort_order?: number | null;
 };
 
-type LessonPageClientProps = {
-  lessonId: string;
+type QuizQuestion = {
+  id: string;
+  question_text: string;
+  question_type: string;
+  quiz_options: QuizOption[];
 };
 
-export default function LessonPageClient({ lessonId }: LessonPageClientProps) {
-  const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [quiz, setQuiz] = useState<Quiz>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [optionsByQuestion, setOptionsByQuestion] = useState<
-    Record<string, Option[]>
-  >({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type Props = {
+  lesson: Lesson;
+  quiz: Quiz | null;
+  questions: QuizQuestion[];
+};
 
+export default function LessonPageClient({ lesson, quiz, questions }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState<number | null>(null);
+  const [quizVisible, setQuizVisible] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setScore(null);
-      setAnswers({});
-      setOptionsByQuestion({});
-
-      // 1) Lesson
-      const { data: lessonRow, error: lessonErr } = await supabase
-        .from('lessons')
-        .select('*')
-        .eq('id', lessonId)
-        .single();
-
-      if (lessonErr || !lessonRow) {
-        console.error(lessonErr);
-        setError('Lesson not found');
-        setLoading(false);
-        return;
-      }
-
-      setLesson(lessonRow as Lesson);
-
-      // 2) Quiz for this lesson (optional)
-      const { data: quizRow, error: quizErr } = await supabase
-        .from('quizzes')
-        .select('*')
-        .eq('lesson_id', lessonId)
-        .single();
-
-      if (quizErr) {
-        // Not fatal – just means no quiz yet
-        console.log('No quiz or quiz error:', quizErr.message);
-      }
-
-      if (!quizRow) {
-        setQuiz(null);
-        setQuestions([]);
-        setLoading(false);
-        return;
-      }
-
-      setQuiz(quizRow as Quiz);
-
-      // 3) Questions for this quiz
-      const { data: questionRows, error: questionsErr } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', quizRow.id)
-        .order('sort_order', { ascending: true });
-
-      if (questionsErr) {
-        console.error(questionsErr);
-        setError('Error loading quiz questions');
-        setLoading(false);
-        return;
-      }
-
-      const qRows = (questionRows ?? []) as Question[];
-      setQuestions(qRows);
-
-      // 4) Options for these questions
-      const questionIds = qRows.map((q) => q.id);
-      if (questionIds.length > 0) {
-        const { data: optionRows, error: optionsErr } = await supabase
-          .from('quiz_options')
-          .select('*')
-          .in('question_id', questionIds)
-          .order('sort_order', { ascending: true });
-
-        if (optionsErr) {
-          console.error(optionsErr);
-          setError('Error loading answer options');
-          setLoading(false);
-          return;
-        }
-
-        const map: Record<string, Option[]> = {};
-        (optionRows ?? []).forEach((opt: any) => {
-          const qid = opt.question_id;
-          if (!map[qid]) map[qid] = [];
-          map[qid].push(opt as Option);
-        });
-
-        setOptionsByQuestion(map);
-      }
-
-      setLoading(false);
-    }
-
-    if (lessonId) {
-      load();
-    }
-  }, [lessonId]);
-
-  const handleChange = (questionId: string, optionId: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+  const handleOptionChange = (questionId: string, optionId: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: optionId,
+    }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
     if (!quiz) return;
 
-    let correct = 0;
+    let correctCount = 0;
 
     questions.forEach((q) => {
       const selectedOptionId = answers[q.id];
-      const opts = optionsByQuestion[q.id] || [];
-      const selectedOption = opts.find((o) => o.id === selectedOptionId);
-      if (selectedOption && selectedOption.is_correct) {
-        correct += 1;
+      if (!selectedOptionId) return;
+
+      const correctOption = q.quiz_options.find((o) => o.is_correct);
+      if (correctOption && correctOption.id === selectedOptionId) {
+        correctCount += 1;
       }
     });
 
-    setScore(correct);
+    setScore(correctCount);
   };
 
-  if (loading) {
-    return <main style={{ padding: 40 }}>Loading lesson...</main>;
-  }
-
-  if (error || !lesson) {
-    return <main style={{ padding: 40, color: 'red' }}>{error || 'Error'}</main>;
-  }
+  const hasQuiz = quiz && questions.length > 0;
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1 style={{ fontSize: 32, marginBottom: 16 }}>{lesson.title}</h1>
-      {lesson.content && (
-        <p style={{ marginBottom: 24, maxWidth: 640 }}>{lesson.content}</p>
+    <main
+      style={{
+        padding: '40px',
+        maxWidth: '900px',
+        margin: '0 auto',
+        color: 'white',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
+    >
+      {/* Title */}
+      <h1 style={{ fontSize: '32px', marginBottom: '16px' }}>
+        {lesson.title}
+      </h1>
+
+      {/* Video */}
+      {lesson.videoUrl && (
+        <section style={{ marginBottom: '24px' }}>
+          <video
+            src={lesson.videoUrl}
+            controls
+            onEnded={() => setQuizVisible(true)} // show quiz after video ends
+            style={{
+              width: '100%',
+              maxHeight: '480px',
+              borderRadius: '8px',
+              backgroundColor: 'black',
+            }}
+          />
+          {!quizVisible && hasQuiz && (
+            <p style={{ fontSize: '14px', marginTop: '8px' }}>
+              Watch the full video. The quiz will appear when the video
+              finishes.{' '}
+              <button
+                type="button"
+                onClick={() => setQuizVisible(true)}
+                style={{
+                  marginLeft: 8,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  border: '1px solid #999',
+                  background: 'transparent',
+                  color: 'white',
+                  cursor: 'pointer',
+                }}
+              >
+                Skip to quiz
+              </button>
+            </p>
+          )}
+        </section>
       )}
 
-      {quiz ? (
+      {/* Transcript / content */}
+      {lesson.content && (
+        <section style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>
+            Lesson Transcript
+          </h2>
+          <p style={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+            {lesson.content}
+          </p>
+        </section>
+      )}
+
+      {/* Quiz */}
+      {hasQuiz && quizVisible && (
         <section>
-          <h2 style={{ fontSize: 24, marginBottom: 12 }}>
-            {quiz.title}
+          <h2 style={{ fontSize: '22px', marginBottom: '16px' }}>
+            Quiz: {quiz!.title}
           </h2>
 
-          {questions.length === 0 && (
-            <p>No quiz questions have been added yet.</p>
-          )}
-
-          {questions.map((q) => {
-            const opts = optionsByQuestion[q.id] || [];
-
-            return (
-              <div key={q.id} style={{ marginBottom: 24 }}>
-                <p style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                  {q.question_text}
+          <form onSubmit={handleSubmit}>
+            {questions.map((q, index) => (
+              <div
+                key={q.id}
+                style={{ marginBottom: '24px', paddingBottom: '8px' }}
+              >
+                <p style={{ fontWeight: 600, marginBottom: '8px' }}>
+                  {index + 1}. {q.question_text}
                 </p>
 
-                {opts.length === 0 && (
-                  <p style={{ fontStyle: 'italic' }}>
-                    No options have been added for this question yet.
-                  </p>
-                )}
-
-                {opts.map((option) => (
+                {q.quiz_options.map((opt) => (
                   <label
-                    key={option.id}
+                    key={opt.id}
                     style={{
                       display: 'block',
-                      marginBottom: 4,
+                      marginBottom: '4px',
                       cursor: 'pointer',
                     }}
                   >
                     <input
                       type="radio"
-                      name={`question-${q.id}`}
-                      value={option.id}
-                      checked={answers[q.id] === option.id}
-                      onChange={() => handleChange(q.id, option.id)}
-                      style={{ marginRight: 8 }}
+                      name={q.id}
+                      value={opt.id}
+                      checked={answers[q.id] === opt.id}
+                      onChange={() => handleOptionChange(q.id, opt.id)}
+                      style={{ marginRight: '8px' }}
                     />
-                    {option.option_text}
+                    {opt.option_text}
                   </label>
                 ))}
               </div>
-            );
-          })}
+            ))}
 
-          {questions.length > 0 && (
-            <>
-              <button
-                onClick={handleSubmit}
-                style={{
-                  marginTop: 8,
-                  padding: '8px 16px',
-                  backgroundColor: '#047835',
-                  color: 'white',
-                  borderRadius: 4,
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                Submit Quiz
-              </button>
+            <button
+              type="submit"
+              style={{
+                padding: '10px 18px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: '#047835',
+                color: 'white',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Submit Quiz
+            </button>
+          </form>
 
-              {score !== null && (
-                <p style={{ marginTop: 12 }}>
-                  You scored {score} out of {questions.length}.
-                </p>
-              )}
-            </>
+          {score !== null && (
+            <p style={{ marginTop: '16px', fontWeight: 600 }}>
+              You scored {score} out of {questions.length}.
+            </p>
           )}
         </section>
-      ) : (
-        <p>No quiz has been created for this lesson yet.</p>
       )}
     </main>
   );

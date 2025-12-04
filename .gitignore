@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prevent massive unwanted uploads
+.next/
+out/
+node_modules/
+videos/
+public/videos/
+*.mp4
+*.mov
