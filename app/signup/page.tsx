@@ -1,94 +1,82 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabaseClient'
+import Link from 'next/link';
+import { FormEvent } from 'react';
 
 export default function SignupPage() {
-  const router = useRouter()
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (error) {
-      setLoading(false)
-      setError(error.message)
-      return
-    }
-
-    const user = data.user
-    if (user) {
-      // create profile row tied to this auth user
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: user.id,
-        full_name: fullName,
-        role: 'employee', // default – we’ll handle internal/external later
-      })
-
-      if (profileError) {
-        console.error(profileError)
-      }
-    }
-
-    setLoading(false)
-    // you can also route to "check your email" if you enable confirmation
-    router.push('/dashboard')
-  }
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    // TODO: hook this up to Supabase sign-up
+  };
 
   return (
-    <main style={{ padding: 40, maxWidth: 400 }}>
-      <h1 style={{ fontSize: 32, marginBottom: 16 }}>Sign Up</h1>
-      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          type="text"
-          placeholder="Full name"
-          value={fullName}
-          onChange={e => setFullName(e.target.value)}
-          required
-          style={{ padding: 8 }}
-        />
-        <input
-          type="email"
-          placeholder="Work email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          style={{ padding: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          style={{ padding: 8 }}
-        />
+    <main className="auth-page">
+      <section className="auth-card-wrapper">
+        <div className="auth-card">
+          <div className="auth-brand">AnchorP Academy</div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: 10, marginTop: 8 }}
-        >
-          {loading ? 'Creating account…' : 'Sign up'}
-        </button>
+          <h1 className="auth-title">Create account</h1>
 
-        {error && <p style={{ color: 'tomato' }}>{error}</p>}
-      </form>
-      <p style={{ marginTop: 16 }}>
-        Already have an account? <a href="/login">Login</a>
-      </p>
+          <button
+            type="button"
+            className="auth-social-button"
+          >
+            <span className="auth-social-icon">G</span>
+            <span>Sign up with Google</span>
+          </button>
+
+          <div className="auth-divider">
+            <span />
+            <p>or sign up with email</p>
+            <span />
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label className="auth-label">
+              Full name
+              <input
+                type="text"
+                className="auth-input"
+                placeholder="Omar Beyond"
+                required
+              />
+            </label>
+
+            <label className="auth-label">
+              Email address
+              <input
+                type="email"
+                className="auth-input"
+                placeholder="omar@beyond.com"
+                required
+              />
+            </label>
+
+            <label className="auth-label">
+              Password
+              <input
+                type="password"
+                className="auth-input"
+                placeholder="Create a password"
+                required
+              />
+            </label>
+
+            <button type="submit" className="auth-primary-button">
+              Sign up
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Already have an account?{' '}
+            <Link href="/login" className="auth-footer-link">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </section>
+
+      <section className="auth-hero" aria-hidden="true" />
     </main>
-  )
+  );
 }

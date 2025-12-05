@@ -1,87 +1,154 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import type { User } from "@supabase/supabase-js";
 
 type Course = {
   id: string;
-  title: string;
-  slug: string;
-  description?: string | null;
+  title?: string;
 };
 
-type LessonWithCourse = {
-  lesson_id: string;
+type EnrollmentRow = {
+  id: string;
   course_id: string;
 };
 
-type CourseWithProgress = Course & {
-  totalLessons: number;
-  completedLessons: number;
-  progressPercent: number;
+type Lesson = {
+  id: string;
+  course_id: string;
 };
 
-export default function DashboardPageClient() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [courses, setCourses] = useState<CourseWithProgress[]>([]);
+type LessonProgressRow = {
+  lesson_id: string;
+};
+
+type CourseWithProgress = {
+  enrollmentId: string;
+  course: Course;
+  progressPercent: number;
+  completedLessons: number;
+  totalLessons: number;
+};
+
+export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [profileName, setProfileName] = useState<string>("");
+  const [inProgressCourses, setInProgressCourses] = useState<CourseWithProgress[]>([]);
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  const [lessonsCompleted, setLessonsCompleted] = useState<number>(0);
+  const [recommendedCourses, setRecommendedCourses] = useState<Course[]>([]);
+
   useEffect(() => {
-    async function loadDashboard() {
+    const loadDashboard = async () => {
       setLoading(true);
       setError(null);
 
-      // 1) get current user
+      // 1. Current auth user
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/login");
+      if (userError || !user) {
+        setError("You must be logged in to view the dashboard.");
+        setLoading(false);
         return;
       }
 
-      setUser(user);
+      // 2. Profile (name)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name") // change if your column is named differently
+        .eq("id", user.id)
+        .maybeSingle();
 
-      // 2) get courses
-      const { data: courseRows, error: courseError } = await supabase
+      if (!profileError && profile?.full_name) {
+        setProfileName(profile.full_name);
+      }
+
+      // 3. Enrollments
+      const { data: enrollmentRows, error: enrollError } = await supabase
+        .from("course_enrollments")
+        .select("id, course_id")
+        .eq("user_id", user.id); // adjust if your FK is called something else
+
+      if (enrollError) {
+        setError(enrollError.message);
+        setLoading(false);
+        return;
+      }
+
+      const enrollments = (enrollmentRows || []) as EnrollmentRow[];
+
+      // If the user has NO enrollments yet, we only need recommended courses
+      if (enrollments.length === 0) {
+        const { data: recCourses, error: recError } = await supabase
+          .from("courses")
+          .select("*") // no specific columns, so no chance of wrong names
+          .limit(6);
+
+        if (recError) {
+          setError(recError.message);
+        } else {
+          setRecommendedCourses((recCourses || []) as Course[]);
+        }
+
+        setInProgressCourses([]);
+        setCompletedCount(0);
+        setLessonsCompleted(0);
+        setLoading(false);
+        return;
+      }
+
+      const courseIds = enrollments.map((e) => e.course_id);
+
+      // 4. Courses for those enrollments
+      const { data: enrolledCourses, error: coursesError } = await supabase
         .from("courses")
-        .select("id, title, slug, description");
+        .select("*") // <-- IMPORTANT: no category/level specified
+        .in("id", courseIds);
 
-      if (courseError) {
-        setError(courseError.message);
+      if (coursesError) {
+        setError(coursesError.message);
         setLoading(false);
         return;
       }
 
-      // 3) lessons → course
-      const { data: lessonRows, error: lessonError } = await supabase
+      const coursesById = new Map<string, Course>();
+      (enrolledCourses || []).forEach((c) => {
+        const course = c as Course;
+        coursesById.set(course.id, course);
+      });
+
+      // 5. Lessons for those courses
+      const { data: lessonRows, error: lessonsError } = await supabase
         .from("lessons")
-        .select("id, module:modules!inner(course_id)");
+        .select("id, course_id")
+        .in("course_id", courseIds);
 
-      if (lessonError) {
-        setError(lessonError.message);
+      if (lessonsError) {
+        setError(lessonsError.message);
         setLoading(false);
         return;
       }
 
-      const lessonsWithCourse: LessonWithCourse[] =
-        (lessonRows as any[])?.map((row) => ({
-          lesson_id: row.id,
-          course_id: row.module.course_id,
-        })) ?? [];
+      const lessons = (lessonRows || []) as Lesson[];
 
-      // 4) completed lessons for this user
+      const lessonsByCourse = new Map<string, Lesson[]>();
+      lessons.forEach((lesson) => {
+        if (!lessonsByCourse.has(lesson.course_id)) {
+          lessonsByCourse.set(lesson.course_id, []);
+        }
+        lessonsByCourse.get(lesson.course_id)!.push(lesson);
+      });
+
+      // 6. Lesson progress
       const { data: progressRows, error: progressError } = await supabase
         .from("lesson_progress")
-        .select("lesson_id, status")
-        .eq("user_id", user.id)
-        .eq("status", "completed");
+        .select("lesson_id")
+        .eq("user_id", user.id);
 
       if (progressError) {
         setError(progressError.message);
@@ -89,182 +156,291 @@ export default function DashboardPageClient() {
         return;
       }
 
+      const lessonProgress = (progressRows || []) as LessonProgressRow[];
       const completedLessonIds = new Set(
-        (progressRows ?? []).map((p) => p.lesson_id as string)
+        lessonProgress.map((lp) => lp.lesson_id)
       );
 
-      const lessonsByCourse: Record<
-        string,
-        { total: number; completed: number }
-      > = {};
+      setLessonsCompleted(completedLessonIds.size);
 
-      for (const l of lessonsWithCourse) {
-        if (!lessonsByCourse[l.course_id]) {
-          lessonsByCourse[l.course_id] = { total: 0, completed: 0 };
-        }
-        lessonsByCourse[l.course_id].total += 1;
-        if (completedLessonIds.has(l.lesson_id)) {
-          lessonsByCourse[l.course_id].completed += 1;
-        }
-      }
+      // 7. Compute per-course progress
+      const courseWithProgress: CourseWithProgress[] = enrollments.map(
+        (enrollment) => {
+          const course = coursesById.get(enrollment.course_id);
+          const courseLessons = lessonsByCourse.get(enrollment.course_id) || [];
 
-      const coursesWithProgress: CourseWithProgress[] =
-        (courseRows ?? []).map((c: any) => {
-          const stats = lessonsByCourse[c.id] ?? {
-            total: 0,
-            completed: 0,
-          };
+          const totalLessons = courseLessons.length;
+          const completedLessons = courseLessons.filter((lesson) =>
+            completedLessonIds.has(lesson.id)
+          ).length;
+
           const progressPercent =
-            stats.total === 0
+            totalLessons === 0
               ? 0
-              : Math.round((stats.completed / stats.total) * 100);
+              : Math.round((completedLessons / totalLessons) * 100);
 
           return {
-            id: c.id,
-            title: c.title,
-            slug: c.slug,
-            description: c.description,
-            totalLessons: stats.total,
-            completedLessons: stats.completed,
+            enrollmentId: enrollment.id,
+            course: course || { id: enrollment.course_id },
             progressPercent,
+            completedLessons,
+            totalLessons,
           };
-        });
+        }
+      );
 
-      setCourses(coursesWithProgress);
+      const completedCoursesCount = courseWithProgress.filter(
+        (c) => c.totalLessons > 0 && c.completedLessons === c.totalLessons
+      ).length;
+
+      setCompletedCount(completedCoursesCount);
+
+      const inProgress = courseWithProgress.filter(
+        (c) => c.progressPercent < 100
+      );
+      setInProgressCourses(inProgress);
+
+      // 8. Recommended courses = not enrolled
+      const { data: recCourses, error: recError } = await supabase
+        .from("courses")
+        .select("*") // again, no explicit column list
+        .not("id", "in", `(${courseIds.join(",")})`)
+        .limit(6);
+
+      if (recError) {
+        setError(recError.message);
+      } else {
+        setRecommendedCourses((recCourses || []) as Course[]);
+      }
+
       setLoading(false);
-    }
+    };
 
     loadDashboard();
-  }, [router]);
+  }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-  }
-
-  if (loading) {
-    return (
-      <main style={{ padding: 40 }}>
-        <h1>AnchorP LMS</h1>
-        <p>Loading your dashboard…</p>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main style={{ padding: 40 }}>
-        <h1>AnchorP LMS</h1>
-        <p style={{ color: "red" }}>Error: {error}</p>
-      </main>
-    );
-  }
+  const displayName = profileName || "Learner";
 
   return (
-    <main style={{ padding: 40, maxWidth: 960 }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1>AnchorP LMS Dashboard</h1>
-          {user && (
-            <p style={{ color: "#aaa", fontSize: 14 }}>
-              Logged in as {user.email}
-            </p>
-          )}
+    <div className="dashboard-root">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <div className="sidebar-profile">
+          <div className="avatar-circle">
+            {displayName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+          </div>
+          <div>
+            <div className="profile-name">{displayName}</div>
+            <div className="profile-email">academy@anchorp.com</div>
+          </div>
         </div>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "transparent",
-            color: "#fff",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          Log out
-        </button>
-      </header>
 
-      {/* courses list (same as before) */}
-      {courses.length === 0 ? (
-        <p>No courses available yet.</p>
-      ) : (
-        <section style={{ display: "grid", gap: 20 }}>
-          {courses.map((course) => (
-            <div
-              key={course.id}
-              style={{
-                borderRadius: 12,
-                padding: 20,
-                border: "1px solid #333",
-                background: "#111",
-              }}
-            >
-              <h2 style={{ marginBottom: 4 }}>{course.title}</h2>
-              <p style={{ color: "#aaa", marginBottom: 12 }}>
-                {course.description || "No description yet."}
-              </p>
+        <nav className="sidebar-nav">
+          <button className="nav-item nav-item-active">Dashboard</button>
+          <button className="nav-item">My Courses</button>
+          <button className="nav-item">Certificates</button>
+          <button className="nav-item">Reports</button>
+          <button className="nav-item">Settings</button>
+        </nav>
 
-              <div style={{ marginBottom: 8, fontSize: 14 }}>
-                <span>
-                  Lessons:{" "}
-                  <strong>
-                    {course.completedLessons}/{course.totalLessons}
-                  </strong>
-                </span>
-                <span style={{ marginLeft: 12 }}>
-                  Progress:{" "}
-                  <strong>{course.progressPercent.toString()}%</strong>
-                </span>
+        <div className="sidebar-footer">
+          <p className="sidebar-footer-title">Active users</p>
+          <div className="sidebar-avatars">
+            <div className="avatar-sm">AP</div>
+            <div className="avatar-sm">RB</div>
+            <div className="avatar-sm">KS</div>
+            <div className="avatar-count">+12</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <h1 className="topbar-title">Welcome back, {displayName} 👋</h1>
+            <p className="topbar-subtitle">
+              View your course progress and discover new training from
+              Anchorp Academy.
+            </p>
+          </div>
+          <div className="topbar-actions">
+            <button className="btn-secondary">View all courses</button>
+            <button className="btn-primary">Resume last course</button>
+          </div>
+        </header>
+
+        {error && (
+          <p style={{ color: "red", marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
+
+        {loading && <p>Loading your dashboard…</p>}
+
+        {!loading && !error && (
+          <>
+            {/* STATS */}
+            <section className="stats-row">
+              <div className="stat-card">
+                <p className="stat-label">Courses in progress</p>
+                <p className="stat-value">{inProgressCourses.length}</p>
+              </div>
+              <div className="stat-card">
+                <p className="stat-label">Courses completed</p>
+                <p className="stat-value">{completedCount}</p>
+              </div>
+              <div className="stat-card">
+                <p className="stat-label">Lessons completed</p>
+                <p className="stat-value">{lessonsCompleted}</p>
+              </div>
+            </section>
+
+            <section className="content-grid">
+              {/* LEFT COLUMN */}
+              <div className="column-main">
+                {/* IN PROGRESS */}
+                <section className="block">
+                  <div className="block-header">
+                    <h2 className="block-title">In progress</h2>
+                    <button className="link-button">View all</button>
+                  </div>
+                  <div className="course-list">
+                    {inProgressCourses.length === 0 && (
+                      <p className="course-meta">
+                        You don’t have any in-progress courses yet.
+                      </p>
+                    )}
+                    {inProgressCourses.map((item) => (
+                      <article
+                        key={item.enrollmentId}
+                        className="course-card"
+                      >
+                        <div className="course-card-main">
+                          <h3 className="course-title">
+                            {item.course.title || "Untitled course"}
+                          </h3>
+                          <p className="course-meta">
+                            {item.completedLessons}/{item.totalLessons} lessons
+                            completed
+                          </p>
+                          <div className="progress-row">
+                            <div className="progress-track">
+                              <div
+                                className="progress-fill"
+                                style={{
+                                  width: `${item.progressPercent}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="progress-label">
+                              {item.progressPercent}% complete
+                            </span>
+                          </div>
+                        </div>
+                        <button className="btn-primary btn-small">
+                          Continue
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                {/* RECOMMENDED */}
+                <section className="block">
+                  <div className="block-header">
+                    <h2 className="block-title">Recommended for you</h2>
+                    <button className="link-button">See more</button>
+                  </div>
+                  <div className="course-grid">
+                    {recommendedCourses.length === 0 && (
+                      <p className="course-meta">
+                        No additional recommendations right now.
+                      </p>
+                    )}
+                    {recommendedCourses.map((course) => (
+                      <article
+                        key={course.id}
+                        className="course-card-mini"
+                      >
+                        <h3 className="course-title">
+                          {course.title || "Untitled course"}
+                        </h3>
+                        <p className="course-meta">Course</p>
+                        <button className="btn-secondary btn-small">
+                          Add to my courses
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               </div>
 
-              <div
-                style={{
-                  height: 8,
-                  borderRadius: 999,
-                  background: "#222",
-                  overflow: "hidden",
-                  marginBottom: 16,
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${course.progressPercent}%`,
-                    background:
-                      course.progressPercent === 100 ? "#4dff98" : "#7c5cff",
-                    transition: "width 0.3s ease",
-                  }}
-                />
-              </div>
+              {/* RIGHT COLUMN */}
+              <aside className="column-side">
+                <section className="block map-block">
+                  <p className="map-label">Learning path</p>
+                  <h2 className="map-title">Anchorp LMS Overview</h2>
+                  <p className="map-subtitle">
+                    Courses above are pulled directly from your Supabase
+                    tables. Progress is based on finished lessons.
+                  </p>
 
-              <Link
-                href={`/courses/${course.slug}`}
-                style={{
-                  display: "inline-block",
-                  padding: "8px 14px",
-                  borderRadius: 8,
-                  background: "#4dff98",
-                  color: "#000",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                {course.progressPercent === 0 ? "Start Course" : "Continue"}
-              </Link>
-            </div>
-          ))}
-        </section>
-      )}
-    </main>
+                  <div className="map-steps">
+                    <div className="map-step map-step-active">
+                      <span className="map-step-dot" />
+                      <div>
+                        <p className="map-step-title">Step 1</p>
+                        <p className="map-step-meta">
+                          Enroll in your first course.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="map-step">
+                      <span className="map-step-dot" />
+                      <div>
+                        <p className="map-step-title">Step 2</p>
+                        <p className="map-step-meta">
+                          Complete all lessons in a course.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="map-step">
+                      <span className="map-step-dot" />
+                      <div>
+                        <p className="map-step-title">Step 3</p>
+                        <p className="map-step-meta">
+                          Earn certificates & track CEUs.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="btn-primary btn-full">
+                    View all learning paths
+                  </button>
+                </section>
+
+                <section className="block">
+                  <h3 className="block-title">Browse all courses</h3>
+                  <p className="small-block-text">
+                    Open the full course catalog powered by your Supabase
+                    <code> courses </code> table.
+                  </p>
+                  <button className="btn-secondary btn-full">
+                    See all courses
+                  </button>
+                </section>
+              </aside>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

@@ -9,10 +9,10 @@ export default function Home() {
       </p>
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <a href="/login" style={{ padding: 10, border: '1px solid #fff' }}>
+        <a href="/login" style={{ padding: 10, border: '3px solid #fff' }}>
           Login
         </a>
-        <a href="/signup" style={{ padding: 10, border: '1px solid #fff' }}>
+        <a href="/signup" style={{ padding: 10, border: '3px solid #fff' }}>
           Sign up
         </a>
       </div>

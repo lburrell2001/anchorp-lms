@@ -1,26 +1,588 @@
-@import "tailwindcss";
+/* ================================
+   GLOBAL RESET & BASE STYLES
+   ================================ */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  color: #000;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ================================
+   FULL-SCREEN BACKGROUND IMAGE
+   ================================ */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+ min-height: 100vh;
+}
+
+/* ================================
+   LOGIN PAGE WRAPPER
+   ================================ */
+
+.login-page {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* ================================
+   GLASSMORPHIC LOGIN CARD
+   ================================ */
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 32px;
+  border-radius: 28px;
+
+  background: rgba(255, 255, 255, 0.22); /* transparency */
+  backdrop-filter: blur(80px) saturate(220%);
+  -webkit-backdrop-filter: blur(80px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+/* ================================
+   HEADERS & TEXT
+   ================================ */
+
+.login-card h1,
+.login-card h2,
+.login-card h3 {
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: #000;
+}
+
+.login-card p,
+.login-card label {
+  font-size: 15px;
+  margin-bottom: 6px;
+  color: #11500f; /* subtle dark green brand color */
+}
+
+/* ================================
+   INPUT FIELDS — BRAND COLORS
+   ================================ */
+
+.login-card input[type="email"],
+.login-card input[type="password"],
+.login-card input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.75);
+  outline: none;
+  margin-bottom: 18px;
+  transition: all 0.25s ease;
+}
+
+.login-card input:focus {
+  background: #fff;
+  border-color: #047835;
+  box-shadow: 0 0 0 2px rgba(4, 120, 53, 0.35);
+}
+
+/* ================================
+   PRIMARY BUTTON — COMPANY COLORS
+   ================================ */
+
+.login-card button,
+.login-card .primary-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+
+  /* Anchor Products green gradient */
+  background: linear-gradient(135deg, #11500f, #047835);
+
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background 0.2s ease;
+}
+
+.login-card button:hover {
+  background: linear-gradient(135deg, #0c3d0b, #03602b);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+}
+
+.login-card button:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+}
+
+/* ================================
+   LINKS
+   ================================ */
+
+.login-card a {
+  color: #047835;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-card a:hover {
+  text-decoration: underline;
+}
+
+/* ================================
+   SMALL TEXT / FOOTER
+   ================================ */
+
+.login-extra {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #000;
+}
+/* ================================
+   LOGIN PAGE BACKGROUND ONLY
+   ================================ */
+
+.auth-background {
+  background-image: url("/auth-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding-left: 6vw;
+  padding-right: 6vw;
+  min-height: 100vh;
+}
+/* ================================
+   DASHBOARD ONLY (Anchorp brand)
+   ================================ */
+
+.dashboard-root {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+  background: #f5f7f7;
+  font-family: system-ui, sans-serif;
+}
+
+/* SIDEBAR */
+.dashboard-root .sidebar {
+  background: #11500f; /* deep green */
+  color: #ffffff;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.dashboard-root .sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-root .avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #047835; /* brand green */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.dashboard-root .profile-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.dashboard-root .profile-email {
+  font-size: 0.75rem;
+  color: #9ce2bb; /* mint accent */
+}
+
+/* NAV */
+.dashboard-root .sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-root .nav-item {
+  background: transparent;
+  border: none;
+  color: #e0e7ea;
+  padding: 10px 12px;
+  border-radius: 999px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.dashboard-root .nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-root .nav-item-active {
+  background: #ffffff;
+  color: #11500f;
+}
+
+/* SIDEBAR FOOTER */
+.dashboard-root .sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(156, 163, 175, 0.4);
+}
+
+.dashboard-root .sidebar-footer-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ce2bb;
+}
+
+.dashboard-root .sidebar-avatars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .avatar-sm,
+.dashboard-root .avatar-count {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #11500f;
+}
+
+.dashboard-root .avatar-sm {
+  background: #047835;
+  color: #ffffff;
+}
+
+.dashboard-root .avatar-count {
+  background: #9ce2bb;
+  color: #000000;
+}
+
+/* MAIN AREA */
+.dashboard-root .main {
+  padding: 26px 30px;
+}
+
+/* TOP BAR */
+.dashboard-root .topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  gap: 18px;
+}
+
+.dashboard-root .topbar-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dashboard-root .topbar-subtitle {
+  font-size: 0.9rem;
+  color: #76777b; /* brand gray */
+}
+
+/* BUTTONS */
+.dashboard-root .btn-primary,
+.dashboard-root .btn-secondary {
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-root .btn-primary {
+  background: #047835; /* brand green */
+  color: #ffffff;
+}
+
+.dashboard-root .btn-primary:hover {
+  background: #11500f;
+}
+
+.dashboard-root .btn-secondary {
+  background: #9ce2bb; /* mint */
+  color: #11500f;
+}
+
+.dashboard-root .btn-secondary:hover {
+  background: #7fcfa5;
+}
+
+/* STATS STRIP */
+.dashboard-root .stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.dashboard-root .stat-card {
+  background: #ffffff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-root .stat-label {
+  font-size: 0.75rem;
+  color: #76777b;
+}
+
+.dashboard-root .stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #000000;
+}
+
+/* GRID LAYOUT */
+.dashboard-root .content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+}
+
+.dashboard-root .column-main,
+.dashboard-root .column-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-root .block {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-root .block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.dashboard-root .block-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dashboard-root .link-button {
+  border: none;
+  background: transparent;
+  color: #047835;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* COURSES – IN PROGRESS */
+.dashboard-root .course-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-root .course-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-root .course-card-main {
+  flex: 1;
+}
+
+.dashboard-root .course-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 4px;
+}
+
+.dashboard-root .course-meta {
+  font-size: 0.8rem;
+  color: #76777b;
+  margin-bottom: 8px;
+}
+
+/* PROGRESS BAR */
+.dashboard-root .progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .progress-track {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dashboard-root .progress-fill {
+  height: 100%;
+  background: #047835;
+}
+
+.dashboard-root .progress-label {
+  font-size: 0.75rem;
+  color: #76777b;
+}
+
+/* RECOMMENDED GRID */
+.dashboard-root .course-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-root .course-card-mini {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+/* RIGHT-SIDE PANEL */
+.dashboard-root .map-block {
+  background: linear-gradient(to bottom right, #11500f, #047835);
+  color: #ffffff;
+}
+
+.dashboard-root .map-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ce2bb;
+  margin-bottom: 4px;
+}
+
+.dashboard-root .map-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.dashboard-root .map-subtitle {
+  font-size: 0.8rem;
+  color: #e5f6ef;
+  margin-bottom: 10px;
+}
+
+.dashboard-root .map-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dashboard-root .map-step {
+  background: rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.dashboard-root .map-step-active {
+  background: rgba(156, 226, 187, 0.35);
+}
+
+.dashboard-root .map-step-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 4px;
+  background: #9ce2bb;
+}
+
+.dashboard-root .map-step-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.dashboard-root .map-step-meta {
+  font-size: 0.75rem;
+  color: #e0f2ea;
+}
+
+.dashboard-root .map-footer-label {
+  font-size: 0.75rem;
+  color: #e0f2ea;
+  margin-bottom: 4px;
+}
+
+.dashboard-root .map-footer-value {
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+/* GENERIC SMALL BLOCK */
+.dashboard-root .small-block-text {
+  font-size: 0.8rem;
+  color: #76777b;
+  margin: 8px 0 10px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .dashboard-root {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-root .sidebar {
+    display: none; /* later you can swap to a mobile drawer */
+  }
+  .dashboard-root .content-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-root .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

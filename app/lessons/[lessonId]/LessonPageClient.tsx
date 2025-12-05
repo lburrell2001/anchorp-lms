@@ -73,7 +73,7 @@ export default function LessonPageClient({ lesson, quiz, questions }: Props) {
         padding: '40px',
         maxWidth: '900px',
         margin: '0 auto',
-        color: 'white',
+        color: 'black',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
@@ -109,7 +109,7 @@ export default function LessonPageClient({ lesson, quiz, questions }: Props) {
                   borderRadius: 4,
                   border: '1px solid #999',
                   background: 'transparent',
-                  color: 'white',
+                  color: 'black',
                   cursor: 'pointer',
                 }}
               >

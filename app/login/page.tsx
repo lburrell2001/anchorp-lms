@@ -1,75 +1,99 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabaseClient'
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+  async function handleLogin(e: FormEvent) {
+    e.preventDefault();
+    setErrorMsg(null);
+    setLoading(true);
 
-    setLoading(false)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message)
-      return
-    }
+      if (error) {
+        setErrorMsg(error.message);
+        return;
+      }
 
-    // later we’ll check role and route accordingly
-    if (data.session) {
-      router.push('/dashboard')
+      // ✅ successful login – send them to dashboard (or wherever)
+      router.push("/dashboard");
+    } catch (err: any) {
+      setErrorMsg(err.message ?? "Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <main style={{ padding: 40, maxWidth: 400 }}>
-      <h1 style={{ fontSize: 32, marginBottom: 16 }}>Login</h1>
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          style={{ padding: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          style={{ padding: 8 }}
-        />
+    <div className="auth-background">
+      <div className="login-page">
+        <div className="login-card">
+          <h1>Sign in</h1>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: 10, marginTop: 8 }}
-        >
-          {loading ? 'Logging in…' : 'Login'}
-        </button>
+          {errorMsg && (
+            <p
+              style={{
+                marginBottom: 16,
+                color: "#b00020",
+                fontSize: 14,
+              }}
+            >
+              {errorMsg}
+            </p>
+          )}
 
-        {error && <p style={{ color: 'tomato' }}>{error}</p>}
-      </form>
-      <p style={{ marginTop: 16 }}>
-        Don&apos;t have an account? <a href="/signup">Sign up</a>
-      </p>
-    </main>
-  )
+          <form onSubmit={handleLogin}>
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+
+          <p
+            style={{
+              marginTop: 16,
+              fontSize: 14,
+            }}
+          >
+            Don’t have an account?{" "}
+            <a href="/signup" className="login-link">
+              Sign up
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
-
-
