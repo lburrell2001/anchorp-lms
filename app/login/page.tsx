@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div className="auth-background">
       <div className="login-page">
         <div className="login-card">
-          <h1>Sign in</h1>
+          <h1>Log in</h1>
 
           {errorMsg && (
             <p

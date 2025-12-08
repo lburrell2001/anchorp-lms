@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { FormEvent } from 'react';
+import Link from "next/link";
+import { FormEvent } from "react";
 
 export default function SignupPage() {
   const handleSubmit = (e: FormEvent) => {
@@ -10,73 +10,118 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-card-wrapper">
-        <div className="auth-card">
-          <div className="auth-brand">AnchorP Academy</div>
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundImage: "url('/auth-hero.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="login-card">
+        <h1 style={{ marginBottom: 8 }}>Sign up</h1>
+        <p style={{ marginBottom: 20, color: "#111" }}>
+          Create your Anchor Academy account.
+        </p>
 
-          <h1 className="auth-title">Create account</h1>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "grid", gap: 12 }}
+        >
+          <label style={{ fontSize: 14 }}>
+            Full name
+            <input
+              type="text"
+              required
+              placeholder="Bob Anchorman"
+              style={{
+                width: "100%",
+                marginTop: 4,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "rgba(255,255,255,0.9)",
+                color: "#111",
+              }}
+            />
+          </label>
+
+          <label style={{ fontSize: 14 }}>
+            Email
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              style={{
+                width: "100%",
+                marginTop: 4,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "rgba(255,255,255,0.9)",
+                color: "#111",
+              }}
+            />
+          </label>
+
+          <label style={{ fontSize: 14 }}>
+            Password
+            <input
+              type="password"
+              required
+              placeholder="Create a password"
+              style={{
+                width: "100%",
+                marginTop: 4,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "rgba(255,255,255,0.9)",
+                color: "#111",
+              }}
+            />
+          </label>
 
           <button
-            type="button"
-            className="auth-social-button"
+            type="submit"
+            style={{
+              marginTop: 8,
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: "#047857",
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
-            <span className="auth-social-icon">G</span>
-            <span>Sign up with Google</span>
+            Sign up
           </button>
+        </form>
 
-          <div className="auth-divider">
-            <span />
-            <p>or sign up with email</p>
-            <span />
-          </div>
-
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <label className="auth-label">
-              Full name
-              <input
-                type="text"
-                className="auth-input"
-                placeholder="Omar Beyond"
-                required
-              />
-            </label>
-
-            <label className="auth-label">
-              Email address
-              <input
-                type="email"
-                className="auth-input"
-                placeholder="omar@beyond.com"
-                required
-              />
-            </label>
-
-            <label className="auth-label">
-              Password
-              <input
-                type="password"
-                className="auth-input"
-                placeholder="Create a password"
-                required
-              />
-            </label>
-
-            <button type="submit" className="auth-primary-button">
-              Sign up
-            </button>
-          </form>
-
-          <p className="auth-footer-text">
-            Already have an account?{' '}
-            <Link href="/login" className="auth-footer-link">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      <section className="auth-hero" aria-hidden="true" />
+        <p
+          style={{
+            marginTop: 16,
+            fontSize: 14,
+            color: "#111",
+          }}
+        >
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            style={{
+              color: "#047857",
+              textDecoration: "underline",
+              fontWeight: 500,
+            }}
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

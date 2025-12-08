@@ -17,24 +17,38 @@ body {
 }
 
 /* ================================
-   FULL-SCREEN BACKGROUND IMAGE
+   FULL-SCREEN BACKGROUND IMAGE BASE
    ================================ */
 
 body {
- min-height: 100vh;
+  min-height: 100vh;
 }
 
 /* ================================
-   LOGIN PAGE WRAPPER
+   LOGIN / AUTH PAGE WRAPPER
+   (login, signup, home)
    ================================ */
 
-.login-page {
-  width: 100%;
-  min-height: 100vh;
+.login-page,
+.auth-background {
+  background-image: url("/auth-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Force login-page to behave as intended */
+.login-page {
+  width: 100%;               /* <-- THIS IS THE FIX */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* ================================
@@ -46,15 +60,18 @@ body {
   max-width: 420px;
   padding: 40px 32px;
   border-radius: 28px;
+  
 
-  background: rgba(255, 255, 255, 0.22); /* transparency */
+  /* LESS SEE-THROUGH than before */
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(80px) saturate(220%);
   -webkit-backdrop-filter: blur(80px) saturate(220%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
   text-align: left;
 }
+
 
 /* ================================
    HEADERS & TEXT

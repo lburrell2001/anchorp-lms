@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [progressByCourse, setProgressByCourse] = useState<
     Record<string, number>
   >({});
+  const [certificatesCount, setCertificatesCount] = useState(0); // ⭐ NEW
   const [error, setError] = useState<string | null>(null);
 
   // --------------------------------------------------
@@ -68,57 +69,54 @@ export default function DashboardPage() {
       return;
     }
 
-    // 2) Profile for this user
     // 2) Ensure a profile row exists for this user
-const { data: existingProfile, error: profileError } = await supabase
-  .from("profiles")
-  .select("id, full_name, email, user_type")
-  .eq("id", user.id)
-  .maybeSingle();
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, user_type")
+      .eq("id", user.id)
+      .maybeSingle();
 
-if (profileError) {
-  setError(profileError.message);
-  setLoading(false);
-  return;
-}
+    if (profileError) {
+      setError(profileError.message);
+      setLoading(false);
+      return;
+    }
 
-let profileRow = existingProfile as Profile | null;
+    let profileRow = existingProfile as Profile | null;
 
-if (!profileRow) {
-  // No profile row yet → create one so the FK on course_enrollments will pass
-  const email = user.email ?? "";
-  const fullName =
-    (user.user_metadata as any)?.full_name ||
-    email.split("@")[0] ||
-    "Learner";
+    if (!profileRow) {
+      const email = user.email ?? "";
+      const fullName =
+        (user.user_metadata as any)?.full_name ||
+        email.split("@")[0] ||
+        "Learner";
 
-  const userType: "internal" | "external" =
-    email.toLowerCase().endsWith("@anchorp.com") ? "internal" : "external";
+      const userType: "internal" | "external" =
+        email.toLowerCase().endsWith("@anchorp.com") ? "internal" : "external";
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("profiles")
-    .insert({
-      id: user.id,          // ⬅️ matches auth.users.id AND course_enrollments.user_id FK target
-      email,
-      full_name: fullName,
-      user_type: userType,
-    })
-    .select("id, full_name, email, user_type")
-    .single();
+      const { data: inserted, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email,
+          full_name: fullName,
+          user_type: userType,
+        })
+        .select("id, full_name, email, user_type")
+        .single();
 
-  if (insertError) {
-    setError(insertError.message);
-    setLoading(false);
-    return;
-  }
+      if (insertError) {
+        setError(insertError.message);
+        setLoading(false);
+        return;
+      }
 
-  profileRow = inserted as Profile;
-}
+      profileRow = inserted as Profile;
+    }
 
-setProfile(profileRow);
+    setProfile(profileRow);
 
-
-    // 3) A few "active users" (just other profiles for now)
+    // 3) A few "active users"
     const { data: activeProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -133,9 +131,9 @@ setProfile(profileRow);
 
     // 4) Enrollments + course info
     const { data: enrollments, error: enrollError } = await supabase
-  .from("course_enrollments")
-  .select("id, course_id, courses(*)")
-  .eq("user_id", user.id);
+      .from("course_enrollments")
+      .select("id, course_id, courses(*)")
+      .eq("user_id", user.id);
 
     if (enrollError) {
       setError(enrollError.message);
@@ -170,10 +168,10 @@ setProfile(profileRow);
 
     setRecommended((recCourses || []) as Course[]);
 
-    // 6) Lesson progress
+    // 6) Lesson progress (using completed_at column)
     const { data: lessonProgress, error: lpError } = await supabase
       .from("lesson_progress")
-      .select("lesson_id, completed")
+      .select("lesson_id, completed:completed_at")
       .eq("user_id", user.id);
 
     if (lpError) {
@@ -227,6 +225,20 @@ setProfile(profileRow);
     setProgressByCourse(progressMap);
     setCoursesCompleted(completedCoursesSet.size);
 
+    // 8) Certificates ⭐ NEW
+    const { data: certRows, error: certError } = await supabase
+      .from("certificates")
+      .select("id")
+      .eq("user_id", user.id);
+
+    if (certError) {
+      setError(certError.message);
+      setLoading(false);
+      return;
+    }
+
+    setCertificatesCount((certRows || []).length);
+
     setLoading(false);
   }, []);
 
@@ -240,33 +252,47 @@ setProfile(profileRow);
   );
 
   // --------------------------------------------------
+  // LEARNING PATH STATUS (for card)
+  // --------------------------------------------------
+  const hasEnrollment = inProgress.length > 0;
+  const hasAnyLessonProgress = lessonsCompleted > 0;
+  const hasCompletedCourse = coursesCompleted > 0;
+  const hasCertificate = certificatesCount > 0;
+
+  const step1Status = hasEnrollment ? "Completed" : "Not started";
+  const step2Status = hasCompletedCourse
+    ? "Completed"
+    : hasAnyLessonProgress
+    ? "In progress"
+    : hasEnrollment
+    ? "Locked"
+    : "Locked";
+
+  const step3Status = hasCertificate
+    ? "Completed"
+    : hasCompletedCourse
+    ? "In progress"
+    : "Locked";
+
+  // --------------------------------------------------
   // BUTTON HANDLERS
   // --------------------------------------------------
 
-  const handleViewAllCourses = () => {
-    router.push("/courses");
-  };
+  const routerPush = (path: string) => router.push(path);
 
-  const handleSeeAllCourses = () => {
-    router.push("/courses");
-  };
-
-  const handleViewInProgress = () => {
-    router.push("/my-courses");
-  };
-
-  const handleViewLearningPaths = () => {
-    router.push("/learning-paths");
-  };
+  const handleViewAllCourses = () => routerPush("/courses");
+  const handleSeeAllCourses = () => routerPush("/courses");
+  const handleViewInProgress = () => routerPush("/my-courses");
+  const handleViewLearningPaths = () => routerPush("/learning-paths");
 
   const handleResumeLastCourse = () => {
     if (!inProgress.length) {
-      router.push("/my-courses");
+      routerPush("/my-courses");
       return;
     }
     const last = inProgress[0];
     const slug = last.courses?.slug;
-    if (slug) router.push(`/courses/${slug}`);
+    if (slug) routerPush(`/courses/${slug}`);
   };
 
   const handleAddToMyCourses = async (courseId: string) => {
@@ -297,6 +323,10 @@ setProfile(profileRow);
     await loadDashboard();
   };
 
+  const handleViewCertificates = () => routerPush("/certificates");
+  const handleViewReports = () => routerPush("/reports");
+  const handleViewSettings = () => routerPush("/settings");
+
   // --------------------------------------------------
   // RENDER
   // --------------------------------------------------
@@ -324,9 +354,7 @@ setProfile(profileRow);
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="sidebar-profile">
-          <div className="avatar-circle">
-            {getInitials(displayName)}
-          </div>
+          <div className="avatar-circle">{getInitials(displayName)}</div>
           <div>
             <div className="profile-name">{displayName}</div>
             <div className="profile-email">{displayEmail}</div>
@@ -341,9 +369,15 @@ setProfile(profileRow);
           <button className="nav-item" onClick={handleSeeAllCourses}>
             All Courses
           </button>
-          <button className="nav-item">Certificates</button>
-          <button className="nav-item">Reports</button>
-          <button className="nav-item">Settings</button>
+          <button className="nav-item" onClick={handleViewCertificates}>
+            Certificates
+          </button>
+          <button className="nav-item" onClick={handleViewReports}>
+            Reports
+          </button>
+          <button className="nav-item" onClick={handleViewSettings}>
+            Settings
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -370,21 +404,15 @@ setProfile(profileRow);
               Welcome back, {displayName.split(" ")[0]} 👋
             </div>
             <div className="topbar-subtitle">
-              View your course progress and discover new training from
-              Anchorp Academy.
+              View your course progress and discover new training from Anchorp
+              Academy.
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              className="btn-secondary"
-              onClick={handleViewAllCourses}
-            >
+            <button className="btn-secondary" onClick={handleViewAllCourses}>
               View all courses
             </button>
-            <button
-              className="btn-primary"
-              onClick={handleResumeLastCourse}
-            >
+            <button className="btn-primary" onClick={handleResumeLastCourse}>
               Resume last course
             </button>
           </div>
@@ -434,8 +462,7 @@ setProfile(profileRow);
                 <div className="course-list">
                   {inProgress.slice(0, 3).map((enrollment) => {
                     const c = enrollment.courses;
-                    const pct =
-                      progressByCourse[enrollment.course_id] ?? 0;
+                    const pct = progressByCourse[enrollment.course_id] ?? 0;
                     return (
                       <div key={enrollment.id} className="course-card">
                         <div className="course-card-main">
@@ -457,9 +484,7 @@ setProfile(profileRow);
                           <button
                             className="btn-primary"
                             style={{ fontSize: "0.8rem", padding: "6px 12px" }}
-                            onClick={() =>
-                              router.push(`/courses/${c.slug}`)
-                            }
+                            onClick={() => router.push(`/courses/${c.slug}`)}
                           >
                             Continue
                           </button>
@@ -490,10 +515,7 @@ setProfile(profileRow);
               ) : (
                 <div className="course-grid">
                   {recommended.map((course) => (
-                    <div
-                      key={course.id}
-                      className="course-card-mini"
-                    >
+                    <div key={course.id} className="course-card-mini">
                       <div className="course-title">{course.title}</div>
                       <div className="course-meta">Course</div>
                       <button
@@ -503,9 +525,7 @@ setProfile(profileRow);
                           padding: "6px 12px",
                           marginTop: "8px",
                         }}
-                        onClick={() =>
-                          handleAddToMyCourses(course.id)
-                        }
+                        onClick={() => handleAddToMyCourses(course.id)}
                       >
                         Add to my courses
                       </button>
@@ -518,39 +538,93 @@ setProfile(profileRow);
 
           {/* RIGHT COLUMN */}
           <div className="column-side">
+            {/* ⭐ LEARNING PATH CARD NOW DYNAMIC */}
             <section className="block map-block">
               <div className="map-label">Learning path</div>
               <div className="map-title">Anchorp LMS Overview</div>
               <div className="map-subtitle">
-                Courses above are pulled directly from your Supabase
-                tables. Progress is based on finished lessons.
+                Courses above are pulled directly from your Supabase tables.
+                Progress is based on finished lessons and earned certificates.
               </div>
 
               <div className="map-steps">
-                <div className="map-step map-step-active">
+                {/* Step 1 */}
+                <div
+                  className={
+                    "map-step" + (hasEnrollment ? " map-step-active" : "")
+                  }
+                >
                   <div className="map-step-dot" />
-                  <div>
-                    <div className="map-step-title">Step 1</div>
-                    <div className="map-step-meta">
-                      Enroll in your first course.
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <div className="map-step-title">Step 1</div>
+                        <div className="map-step-meta">
+                          Enroll in your first course.
+                        </div>
+                      </div>
+                      <div className="map-step-status">{step1Status}</div>
                     </div>
                   </div>
                 </div>
-                <div className="map-step">
+
+                {/* Step 2 */}
+                <div
+                  className={
+                    "map-step" +
+                    (hasAnyLessonProgress || hasCompletedCourse
+                      ? " map-step-active"
+                      : "")
+                  }
+                >
                   <div className="map-step-dot" />
-                  <div>
-                    <div className="map-step-title">Step 2</div>
-                    <div className="map-step-meta">
-                      Complete all lessons in a course.
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <div className="map-step-title">Step 2</div>
+                        <div className="map-step-meta">
+                          Complete all lessons in a course.
+                        </div>
+                      </div>
+                      <div className="map-step-status">{step2Status}</div>
                     </div>
                   </div>
                 </div>
-                <div className="map-step">
+
+                {/* Step 3 */}
+                <div
+                  className={
+                    "map-step" + (hasCertificate ? " map-step-active" : "")
+                  }
+                >
                   <div className="map-step-dot" />
-                  <div>
-                    <div className="map-step-title">Step 3</div>
-                    <div className="map-step-meta">
-                      Earn certificates &amp; track CEUs.
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <div className="map-step-title">Step 3</div>
+                        <div className="map-step-meta">
+                          Earn certificates & track CEUs.
+                        </div>
+                      </div>
+                      <div className="map-step-status">{step3Status}</div>
                     </div>
                   </div>
                 </div>
@@ -561,7 +635,7 @@ setProfile(profileRow);
                 style={{ width: "100%", marginTop: "8px" }}
                 onClick={handleViewLearningPaths}
               >
-                View all learning paths
+                View learning path details
               </button>
             </section>
 
@@ -569,8 +643,7 @@ setProfile(profileRow);
               <div className="block-title">Browse all courses</div>
               <p className="small-block-text">
                 Open the full course catalog powered by your Supabase{" "}
-                <span style={{ fontFamily: "monospace" }}>courses</span>{" "}
-                table.
+                <span style={{ fontFamily: "monospace" }}>courses</span> table.
               </p>
               <button
                 className="btn-secondary"
@@ -595,6 +668,17 @@ setProfile(profileRow);
           </p>
         )}
       </main>
+
+      {/* tiny style just for the status text on dark green card */}
+      <style jsx>{`
+        .map-step-status {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #ecfdf3;
+          opacity: 0.9;
+          text-transform: uppercase;
+        }
+      `}</style>
     </div>
   );
 }
