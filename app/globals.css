@@ -603,3 +603,66 @@ body {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* === SIDEBAR WRAPPER === */
+.sidebar {
+  width: 260px;
+  background: #0f3a1d;                  /* dark green */
+  padding: 24px 20px;       
+  overflow: visible;                    /* allow active pill overflow */
+  display: flex;
+  flex-direction: column;
+}
+
+/* === PROFILE TEXT ONLY (NO CIRCLE) === */
+.sidebar-profile {
+  margin-bottom: 32px;
+}
+
+.profile-name {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.profile-email {
+  color: #d7e7da;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* === NAVIGATION === */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nav-item {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  border-radius: 999px;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+/* Hover effect for inactive items */
+.nav-item:not(.nav-item-active):hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* === ACTIVE ITEM: SEAMLESS OVERFLOW TAB === */
+.nav-item-active {
+  background: #f9fafb;                   /* MATCHES your .main background color */
+  color: #0f3a1d;                        /* dark green text */
+  border-radius: 999px;
+  padding: 10px 24px;                    /* wider = smoother shape */
+  position: relative;
+  box-shadow: none;                      /* NO drop shadow */
+}
+
+

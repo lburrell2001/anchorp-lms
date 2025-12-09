@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import AppSidebar from "../components/AppSidebar";
 
 type Course = {
   id: string;
@@ -47,7 +48,7 @@ export default function DashboardPage() {
   const [progressByCourse, setProgressByCourse] = useState<
     Record<string, number>
   >({});
-  const [certificatesCount, setCertificatesCount] = useState(0); // ⭐ NEW
+  const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // --------------------------------------------------
@@ -85,42 +86,34 @@ export default function DashboardPage() {
     let profileRow = existingProfile as Profile | null;
 
     if (!profileRow) {
-  const email = user.email ?? "";
-  const meta = (user.user_metadata || {}) as any;
+      const email = user.email ?? "";
+      const fullName =
+        (user.user_metadata as any)?.full_name ||
+        email.split("@")[0] ||
+        "Learner";
 
-  const firstName =
-    meta.first_name ||
-    (meta.full_name ? String(meta.full_name).split(" ")[0] : null) ||
-    (email ? email.split("@")[0] : null) ||
-    "Learner";
+      const userType: "internal" | "external" =
+        email.toLowerCase().endsWith("@anchorp.com") ? "internal" : "external";
 
-  const lastName =
-    meta.last_name ||
-    (meta.full_name ? String(meta.full_name).split(" ").slice(1).join(" ") : "");
+      const { data: inserted, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email,
+          full_name: fullName,
+          user_type: userType,
+        })
+        .select("id, full_name, email, user_type")
+        .single();
 
-  const fullName = (meta.full_name as string) ||
-    [firstName, lastName].filter(Boolean).join(" ");
+      if (insertError) {
+        setError(insertError.message);
+        setLoading(false);
+        return;
+      }
 
-  const defaultType: "internal" | "external" =
-    email.toLowerCase().endsWith("@anchorp.com")
-      ? "internal"
-      : "external";
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("profiles")
-    .insert({
-      id: user.id,
-      email,
-      full_name: fullName,
-      user_type: defaultType,
-    })
-    .select("id, full_name, email, user_type")
-    .single();
-
-  if (insertError) throw insertError;
-  profileRow = inserted as Profile;
-}
-
+      profileRow = inserted as Profile;
+    }
 
     setProfile(profileRow);
 
@@ -176,7 +169,7 @@ export default function DashboardPage() {
 
     setRecommended((recCourses || []) as Course[]);
 
-    // 6) Lesson progress (using completed_at column)
+    // 6) Lesson progress
     const { data: lessonProgress, error: lpError } = await supabase
       .from("lesson_progress")
       .select("lesson_id, completed:completed_at")
@@ -233,7 +226,7 @@ export default function DashboardPage() {
     setProgressByCourse(progressMap);
     setCoursesCompleted(completedCoursesSet.size);
 
-    // 8) Certificates ⭐ NEW
+    // 8) Certificates
     const { data: certRows, error: certError } = await supabase
       .from("certificates")
       .select("id")
@@ -285,13 +278,15 @@ export default function DashboardPage() {
   // --------------------------------------------------
   // BUTTON HANDLERS
   // --------------------------------------------------
-
   const routerPush = (path: string) => router.push(path);
 
   const handleViewAllCourses = () => routerPush("/courses");
   const handleSeeAllCourses = () => routerPush("/courses");
   const handleViewInProgress = () => routerPush("/my-courses");
   const handleViewLearningPaths = () => routerPush("/learning-paths");
+  const handleViewCertificates = () => routerPush("/certificates");
+  const handleViewReports = () => routerPush("/reports");
+  const handleViewSettings = () => routerPush("/settings");
 
   const handleResumeLastCourse = () => {
     if (!inProgress.length) {
@@ -331,10 +326,6 @@ export default function DashboardPage() {
     await loadDashboard();
   };
 
-  const handleViewCertificates = () => routerPush("/certificates");
-  const handleViewReports = () => routerPush("/reports");
-  const handleViewSettings = () => routerPush("/settings");
-
   // --------------------------------------------------
   // RENDER
   // --------------------------------------------------
@@ -342,10 +333,14 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="dashboard-root">
-        <div className="sidebar" />
-        <div className="main" style={{ display: "flex", alignItems: "center" }}>
+        <AppSidebar
+          active="dashboard"
+          fullName={profile?.full_name ?? null}
+          email={profile?.email ?? null}
+        />
+        <main className="main" style={{ display: "flex", alignItems: "center" }}>
           <p>Loading dashboard…</p>
-        </div>
+        </main>
       </div>
     );
   }
@@ -353,55 +348,14 @@ export default function DashboardPage() {
   const displayName = profile?.full_name || "Learner";
   const displayEmail = profile?.email || "";
 
-  const extraUserCount =
-    activeUsers.length > 3 ? activeUsers.length - 3 : 0;
-  const visibleActive = activeUsers.slice(0, 3);
-
   return (
     <div className="dashboard-root">
-      {/* SIDEBAR */}
-      <aside className="sidebar">
-        <div className="sidebar-profile">
-          <div className="avatar-circle">{getInitials(displayName)}</div>
-          <div>
-            <div className="profile-name">{displayName}</div>
-            <div className="profile-email">{displayEmail}</div>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav">
-          <button className="nav-item nav-item-active">Dashboard</button>
-          <button className="nav-item" onClick={handleViewInProgress}>
-            My Courses
-          </button>
-          <button className="nav-item" onClick={handleSeeAllCourses}>
-            All Courses
-          </button>
-          <button className="nav-item" onClick={handleViewCertificates}>
-            Certificates
-          </button>
-          <button className="nav-item" onClick={handleViewReports}>
-            Reports
-          </button>
-          <button className="nav-item" onClick={handleViewSettings}>
-            Settings
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-title">Active users</div>
-          <div className="sidebar-avatars">
-            {visibleActive.map((u) => (
-              <div key={u.id} className="avatar-sm">
-                {getInitials(u.full_name)}
-              </div>
-            ))}
-            {extraUserCount > 0 && (
-              <div className="avatar-count">+{extraUserCount}</div>
-            )}
-          </div>
-        </div>
-      </aside>
+      {/* SIDEBAR COMPONENT */}
+      <AppSidebar
+        active="dashboard"
+        fullName={profile?.full_name ?? null}
+        email={profile?.email ?? null}
+      />
 
       {/* MAIN */}
       <main className="main">
@@ -546,7 +500,7 @@ export default function DashboardPage() {
 
           {/* RIGHT COLUMN */}
           <div className="column-side">
-            {/* ⭐ LEARNING PATH CARD NOW DYNAMIC */}
+            {/* Learning path card */}
             <section className="block map-block">
               <div className="map-label">Learning path</div>
               <div className="map-title">Anchorp LMS Overview</div>

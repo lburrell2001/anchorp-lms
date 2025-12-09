@@ -1,25 +1,25 @@
-// app/components/AppSidebar.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
 
+type SidebarKey =
+  | "dashboard"
+  | "my-courses"
+  | "all-courses"
+  | "certificates"
+  | "reports"
+  | "settings";
+
 type SidebarProps = {
-  active:
-    | "dashboard"
-    | "my-courses"
-    | "all-courses"
-    | "certificates"
-    | "reports"
-    | "settings"
-    | "learning-paths"; // ⬅️ added
+  active: SidebarKey;
   fullName: string | null;
   email: string | null;
+  locale?: "en" | "es";
 };
-
 
 function getInitials(name: string | null | undefined) {
   if (!name) return "U";
-  const parts = name.trim().split(" ");
+  const parts = (name || "").trim().split(" ");
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (
     parts[0].charAt(0).toUpperCase() +
@@ -27,69 +27,58 @@ function getInitials(name: string | null | undefined) {
   );
 }
 
-export default function AppSidebar({
-  active,
-  fullName,
-  email,
-}: SidebarProps) {
+export default function AppSidebar({ active, fullName, email }: SidebarProps) {
   const router = useRouter();
 
   const displayName = fullName || "Learner";
   const displayEmail = email || "";
+  const initials = getInitials(fullName);
 
-  const itemClass = (key: SidebarProps["active"]) =>
+  const navItems: { key: SidebarKey; label: string; href: string }[] = [
+    { key: "dashboard", label: "Dashboard", href: "/dashboard" },
+    { key: "my-courses", label: "My Courses", href: "/my-courses" },
+    { key: "all-courses", label: "All Courses", href: "/courses" },
+    { key: "certificates", label: "Certificates", href: "/certificates" },
+    { key: "reports", label: "Reports", href: "/reports" },
+    { key: "settings", label: "Settings", href: "/settings" },
+  ];
+
+  const itemClass = (key: SidebarKey) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
+
+  const handleNavClick = (href: string) => {
+    router.push(href);
+  };
 
   return (
     <aside className="sidebar">
-      {/* profile header */}
+      {/* Profile section */}
       <div className="sidebar-profile">
-        <div className="avatar-circle">{getInitials(displayName)}</div>
+        <div className="avatar-circle">{initials}</div>
         <div>
           <div className="profile-name">{displayName}</div>
-          <div className="profile-email">{displayEmail}</div>
+          {displayEmail && <div className="profile-email">{displayEmail}</div>}
         </div>
       </div>
 
-      {/* main nav */}
+      {/* Navigation */}
       <nav className="sidebar-nav">
-        <button
-          className={itemClass("dashboard")}
-          onClick={() => router.push("/dashboard")}
-        >
-          Dashboard
-        </button>
-        <button
-          className={itemClass("my-courses")}
-          onClick={() => router.push("/my-courses")}
-        >
-          My Courses
-        </button>
-        <button
-          className={itemClass("all-courses")}
-          onClick={() => router.push("/courses")}
-        >
-          All Courses
-        </button>
-        <button
-          className={itemClass("certificates")}
-          onClick={() => router.push("/certificates")}
-        >
-          Certificates
-        </button>
-        <button
-          className={itemClass("reports")}
-          onClick={() => router.push("/reports")}
-        >
-          Reports
-        </button>
-        <button
-          className={itemClass("settings")}
-          onClick={() => router.push("/settings")}
-        >
-          Settings
-        </button>
+        {navItems.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={itemClass(item.key)}
+            onClick={() => handleNavClick(item.href)}
+          >
+            {item.label}
+          </button>
+        ))}
       </nav>
+
+      {/* Footer / small label */}
+      <div className="sidebar-footer">
+        <div className="sidebar-footer-title">AnchorP LMS</div>
+      </div>
     </aside>
   );
 }
