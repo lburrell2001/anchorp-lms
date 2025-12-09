@@ -85,34 +85,42 @@ export default function DashboardPage() {
     let profileRow = existingProfile as Profile | null;
 
     if (!profileRow) {
-      const email = user.email ?? "";
-      const fullName =
-        (user.user_metadata as any)?.full_name ||
-        email.split("@")[0] ||
-        "Learner";
+  const email = user.email ?? "";
+  const meta = (user.user_metadata || {}) as any;
 
-      const userType: "internal" | "external" =
-        email.toLowerCase().endsWith("@anchorp.com") ? "internal" : "external";
+  const firstName =
+    meta.first_name ||
+    (meta.full_name ? String(meta.full_name).split(" ")[0] : null) ||
+    (email ? email.split("@")[0] : null) ||
+    "Learner";
 
-      const { data: inserted, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email,
-          full_name: fullName,
-          user_type: userType,
-        })
-        .select("id, full_name, email, user_type")
-        .single();
+  const lastName =
+    meta.last_name ||
+    (meta.full_name ? String(meta.full_name).split(" ").slice(1).join(" ") : "");
 
-      if (insertError) {
-        setError(insertError.message);
-        setLoading(false);
-        return;
-      }
+  const fullName = (meta.full_name as string) ||
+    [firstName, lastName].filter(Boolean).join(" ");
 
-      profileRow = inserted as Profile;
-    }
+  const defaultType: "internal" | "external" =
+    email.toLowerCase().endsWith("@anchorp.com")
+      ? "internal"
+      : "external";
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("profiles")
+    .insert({
+      id: user.id,
+      email,
+      full_name: fullName,
+      user_type: defaultType,
+    })
+    .select("id, full_name, email, user_type")
+    .single();
+
+  if (insertError) throw insertError;
+  profileRow = inserted as Profile;
+}
+
 
     setProfile(profileRow);
 
