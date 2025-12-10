@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient"; // adjust path if needed
-import AppSidebar from "../components/AppSidebar";   // ⬅️ shared sidebar
+import { supabase } from "../../lib/supabaseClient";
+import AppSidebar from "../components/AppSidebar";
 
 type Course = {
   id: string;
@@ -87,7 +87,7 @@ export default function MyCoursesPage() {
 
       setProfile(profileRow);
 
-      // ---------- ENROLLMENTS (unchanged) ----------
+      // ---------- ENROLLMENTS + COURSE JOIN ----------
       const { data: enrollmentRows, error: enrollmentError } = await supabase
         .from("course_enrollments")
         .select(
@@ -103,11 +103,23 @@ export default function MyCoursesPage() {
           )
         `
         )
-        .eq("user_id", user.id); // 👈 no created_at ordering
+        .eq("user_id", user.id);
 
       if (enrollmentError) throw enrollmentError;
 
-      setItems((enrollmentRows || []) as EnrollmentWithCourse[]);
+      let rows = (enrollmentRows || []) as EnrollmentWithCourse[];
+
+      // 🔒 Extra safety: external users never see internal-only courses,
+      // even if they somehow got enrolled.
+      const isInternalUser = profileRow.user_type === "internal";
+      if (!isInternalUser) {
+        rows = rows.filter(
+          (row) =>
+            !row.courses || row.courses.audience !== "internal"
+        );
+      }
+
+      setItems(rows);
     } catch (e: any) {
       console.error("Error loading my courses:", e);
       setError(e.message ?? "Failed to load enrolled courses.");
@@ -123,12 +135,37 @@ export default function MyCoursesPage() {
   const fullName = profile?.full_name ?? null;
   const email = profile?.email ?? null;
 
+  const handleUnenroll = async (courseId: string) => {
+  try {
+    setError(null);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error("You must be signed in.");
+
+    const { error: deleteError } = await supabase
+      .from("course_enrollments")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("course_id", courseId);
+
+    if (deleteError) throw deleteError;
+
+    setItems((prev) => prev.filter((row) => row.course_id !== courseId));
+  } catch (e: any) {
+    console.error("Error unenrolling:", e);
+    setError(e.message ?? "Failed to unenroll.");
+  }
+};
+
+
   return (
     <div className="dashboard-root">
-      {/* SHARED SIDEBAR WITH REAL USER INFO */}
       <AppSidebar active="my-courses" fullName={fullName} email={email} />
 
-      {/* MAIN */}
       <main className="main">
         <div className="topbar">
           <div>
@@ -229,22 +266,24 @@ export default function MyCoursesPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => router.push(`/courses/${course.slug}`)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 999,
-                        border: "none",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
-                        backgroundColor: "#111827",
-                        color: "#fff",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Continue course
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+  <button
+    type="button"
+    className="btn-primary"
+    onClick={() => router.push(`/courses/${course.slug}`)}
+  >
+    Continue course
+  </button>
+
+  <button
+    type="button"
+    className="btn-secondary"
+    onClick={() => handleUnenroll(course.id)}
+  >
+    Unenroll
+  </button>
+</div>
+
                   </div>
                 );
               })}

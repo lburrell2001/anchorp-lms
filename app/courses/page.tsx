@@ -270,52 +270,40 @@ export default function AllCoursesPage() {
                     }}
                   >
                     {isEnrolled ? (
-                      <>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            color: "#047857",
-                          }}
-                        >
-                          ✓ Enrolled
-                        </span>
-                        <button
-                          onClick={() => (window.location.href = `/courses/${course.slug}`)}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: 999,
-                            border: "none",
-                            fontSize: "0.8rem",
-                            fontWeight: 600,
-                            backgroundColor: "#111827",
-                            color: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Go to course
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => handleEnroll(course.id)}
-                        disabled={enrollingId === course.id}
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: 999,
-                          border: "none",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          backgroundColor: "#047857",
-                          color: "#fff",
-                          cursor:
-                            enrollingId === course.id ? "default" : "pointer",
-                          opacity: enrollingId === course.id ? 0.7 : 1,
-                        }}
-                      >
-                        {enrollingId === course.id ? "Enrolling..." : "Enroll"}
-                      </button>
-                    )}
+  <>
+    <span
+      style={{
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        color: "#047857",
+      }}
+    >
+      ✓ Enrolled
+    </span>
+    <button
+      type="button"
+      className="btn-primary"
+      onClick={() => (window.location.href = `/courses/${course.slug}`)}
+    >
+      Go to course
+    </button>
+  </>
+) : (
+  <button
+    type="button"
+    className="btn-primary"
+    onClick={() => handleEnroll(course.id)}
+    disabled={enrollingId === course.id}
+    style={
+      enrollingId === course.id
+        ? { opacity: 0.7, cursor: "default" }
+        : undefined
+    }
+  >
+    {enrollingId === course.id ? "Enrolling..." : "Enroll"}
+  </button>
+)}
+
                   </div>
                 </div>
               );

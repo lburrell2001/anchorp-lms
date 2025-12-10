@@ -1,213 +1,185 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient"; // ⬅️ adjust if needed
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "../../lib/supabaseClient";
+
+type Profile = {
+  id: string;
+  role: string | null;
+};
+
+type UserType = "internal" | "external";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
+  // from invites: /signup?type=internal&role=admin
+  const userTypeParam = (searchParams.get("type") as UserType) || "external";
+  const roleParam = searchParams.get("role"); // can be "admin" or null
+
+  // If already logged in (via magic-link), route based on profile.role
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select<Profile>("id, role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profile?.role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
+    };
+
+    checkSession();
+  }, [router]);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErrorMsg(null);
+    setError(null);
+    setMessage(null);
     setLoading(true);
 
-    try {
-      const fullName = `${firstName} ${lastName}`.trim();
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            full_name: fullName,
-          },
+    // 1) create auth user with metadata
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          user_type: userTypeParam,
+          role: roleParam ?? null,
         },
-      });
+      },
+    });
 
-      if (error) {
-        throw error;
-      }
-
-      // You can show a "verify email" message here if you have email confirmations on.
-      // For now, just push them to dashboard.
-      router.push("/dashboard");
-    } catch (err: any) {
-      console.error("Sign-up error:", err);
-      setErrorMsg(err.message ?? "Failed to sign up. Please try again.");
-    } finally {
+    if (error) {
+      setError(error.message);
       setLoading(false);
+      return;
     }
+
+    const sessionUser = data.user;
+
+    // 2) upsert into profiles (in case you don’t already have a trigger)
+    if (sessionUser) {
+      await supabase.from("profiles").upsert(
+        {
+          id: sessionUser.id,
+          full_name: fullName,
+          email: sessionUser.email,
+          user_type: userTypeParam,
+          role: roleParam ?? null,
+        },
+        { onConflict: "id" }
+      );
+    }
+
+    // 3) If there is an active session, redirect now by role
+    if (data.session && data.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select<Profile>("id, role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
+    } else {
+      // email confirmation / magic-link flow
+      setMessage(
+        "Check your email for a link to confirm your account and sign in."
+      );
+    }
+
+    setLoading(false);
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundImage: "url('/auth-hero.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
+    <div className="auth-background login-page">
       <div className="login-card">
-        <h1 style={{ marginBottom: 8 }}>Sign up</h1>
-        <p style={{ marginBottom: 20, color: "#111" }}>
-          Create your Anchor Academy account.
+        <h1>Create your account</h1>
+
+        <p style={{ fontSize: 13, marginBottom: 16, color: "#4b5563" }}>
+          You’re signing up as{" "}
+          <strong>
+            {userTypeParam === "internal" ? "Internal Employee" : "External Customer"}
+          </strong>
+          {roleParam === "admin" && " (Admin)"}.
         </p>
 
-        {errorMsg && (
-          <p
-            style={{
-              marginBottom: 12,
-              fontSize: 13,
-              color: "#b91c1c",
-            }}
-          >
-            {errorMsg}
+        {error && (
+          <p style={{ color: "#b91c1c", marginBottom: 12, fontSize: 13 }}>
+            {error}
+          </p>
+        )}
+        {message && (
+          <p style={{ color: "#047857", marginBottom: 12, fontSize: 13 }}>
+            {message}
           </p>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-          <div
-            style={{
-              display: "grid",
-              gap: 12,
-              gridTemplateColumns: "1fr 1fr",
-            }}
-          >
-            <label style={{ fontSize: 14 }}>
-              First name
-              <input
-                type="text"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Lauren"
-                style={{
-                  width: "100%",
-                  marginTop: 4,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  background: "rgba(255,255,255,0.9)",
-                  color: "#111",
-                }}
-              />
-            </label>
+        <form onSubmit={handleSubmit}>
+          <label htmlFor="full-name">Full name</label>
+          <input
+            id="full-name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+          />
 
-            <label style={{ fontSize: 14 }}>
-              Last name
-              <input
-                type="text"
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Burrell"
-                style={{
-                  width: "100%",
-                  marginTop: 4,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  background: "rgba(255,255,255,0.9)",
-                  color: "#111",
-                }}
-              />
-            </label>
-          </div>
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-          <label style={{ fontSize: 14 }}>
-            Email
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              style={{
-                width: "100%",
-                marginTop: 4,
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "rgba(255,255,255,0.9)",
-                color: "#111",
-              }}
-            />
-          </label>
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-          <label style={{ fontSize: 14 }}>
-            Password
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              style={{
-                width: "100%",
-                marginTop: 4,
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "rgba(255,255,255,0.9)",
-                color: "#111",
-              }}
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: 8,
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: "none",
-              background: "#047857",
-              color: "#fff",
-              fontWeight: 600,
-              cursor: loading ? "default" : "pointer",
-              opacity: loading ? 0.8 : 1,
-            }}
-          >
-            {loading ? "Creating account..." : "Sign up"}
+          <button type="submit" disabled={loading}>
+            {loading ? "Creating account…" : "Sign up"}
           </button>
         </form>
 
-        <p
-          style={{
-            marginTop: 16,
-            fontSize: 14,
-            color: "#111",
-          }}
-        >
+        <div className="login-extra">
           Already have an account?{" "}
-          <Link
-            href="/login"
-            style={{
-              color: "#047857",
-              textDecoration: "underline",
-              fontWeight: 500,
-            }}
-          >
-            Sign in
-          </Link>
-        </p>
+          <a href="/login">
+            Log in
+          </a>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

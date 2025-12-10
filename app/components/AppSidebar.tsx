@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabaseClient";
 
 type SidebarKey =
   | "dashboard"
@@ -46,8 +47,14 @@ export default function AppSidebar({ active, fullName, email }: SidebarProps) {
   const itemClass = (key: SidebarKey) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
-  const handleNavClick = (href: string) => {
-    router.push(href);
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Error signing out:", err);
+    } finally {
+      router.replace("/login");
+    }
   };
 
   return (
@@ -68,16 +75,26 @@ export default function AppSidebar({ active, fullName, email }: SidebarProps) {
             key={item.key}
             type="button"
             className={itemClass(item.key)}
-            onClick={() => handleNavClick(item.href)}
+            onClick={() => router.push(item.href)}
           >
             {item.label}
           </button>
         ))}
       </nav>
 
-      {/* Footer / small label */}
-      <div className="sidebar-footer">
-        <div className="sidebar-footer-title">AnchorP LMS</div>
+      {/* Footer */}
+      <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+        <div className="sidebar-footer-title">Account</div>
+
+        <button
+          type="button"
+          className="nav-item"
+          onClick={handleLogout}
+        >
+          Log Out
+        </button>
+
+        
       </div>
     </aside>
   );
