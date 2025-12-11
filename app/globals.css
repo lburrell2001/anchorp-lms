@@ -821,6 +821,10 @@ body {
   display: none;
 }
 
+.sidebar {
+  position: relative; /* so the X can be positioned inside */
+}
+
 @media (max-width: 768px) {
   .dashboard-root,
   .admin-root {
@@ -839,7 +843,7 @@ body {
   z-index: 60;
 }
 .sidebar {
-  position: relative;
+  padding-top: 40px;
 }
 
 

@@ -69,38 +69,49 @@ export default function AppSidebar({
   };
 
   return (
-    <aside className="sidebar">
-      {/* Profile section */}
-      <div className="sidebar-profile">
-        <div className="avatar-circle">{initials}</div>
-        <div>
-          <div className="profile-name">{displayName}</div>
-          {displayEmail && <div className="profile-email">{displayEmail}</div>}
-        </div>
+  <aside className="sidebar">
+    {/* ✕ Close button (mobile only) */}
+    <button
+      type="button"
+      className="sidebar-close-button"
+      onClick={() => onNavClick?.()}
+      aria-label="Close menu"
+    >
+      ✕
+    </button>
+
+    {/* Profile section */}
+    <div className="sidebar-profile">
+      <div className="avatar-circle">{initials}</div>
+      <div>
+        <div className="profile-name">{displayName}</div>
+        {displayEmail && <div className="profile-email">{displayEmail}</div>}
       </div>
+    </div>
 
-      {/* Navigation */}
-      <nav className="sidebar-nav">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={itemClass(item.key)}
-            onClick={() => handleNavClick(item.href)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Footer */}
-      <div className="sidebar-footer" style={{ marginTop: "auto" }}>
-        <div className="sidebar-footer-title">Account</div>
-
-        <button type="button" className="nav-item" onClick={handleLogout}>
-          Log Out
+    {/* Navigation */}
+    <nav className="sidebar-nav">
+      {navItems.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          className={itemClass(item.key)}
+          onClick={() => handleNavClick(item.href)}
+        >
+          {item.label}
         </button>
-      </div>
-    </aside>
-  );
+      ))}
+    </nav>
+
+    {/* Footer */}
+    <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+      <div className="sidebar-footer-title">Account</div>
+
+      <button type="button" className="nav-item" onClick={handleLogout}>
+        Log Out
+      </button>
+    </div>
+  </aside>
+);
+
 }
