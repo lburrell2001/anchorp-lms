@@ -41,7 +41,7 @@ export default function AppSidebar({ active, fullName, email }: SidebarProps) {
     { key: "all-courses", label: "All Courses", href: "/courses" },
     { key: "certificates", label: "Certificates", href: "/certificates" },
     { key: "reports", label: "Reports", href: "/reports" },
-    { key: "settings", label: "Settings", href: "/settings" },
+    
   ];
 
   const itemClass = (key: SidebarKey) =>

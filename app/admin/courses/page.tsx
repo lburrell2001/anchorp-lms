@@ -1156,75 +1156,7 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
               )}
             </div>
 
-            <div className="block">
-  <div className="block-header">
-    <div className="block-title">Suggested Actions</div>
-  </div>
-  <p className="small-block-text">
-    Use these quick actions to keep Anchor Academy clean and high-impact.
-  </p>
-
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-      marginTop: 12,
-    }}
-  >
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "outdated" ? 1 : 0.8,
-        fontWeight: activeSuggested === "outdated" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("outdated")}
-    >
-      Review outdated courses
-    </button>
-
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "popular_external" ? 1 : 0.8,
-        fontWeight: activeSuggested === "popular_external" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("popular_external")}
-    >
-      Highlight popular external courses
-    </button>
-
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "low_completion" ? 1 : 0.8,
-        fontWeight: activeSuggested === "low_completion" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("low_completion")}
-    >
-      Investigate low-completion courses
-    </button>
-  </div>
-
-  {/* Tiny helper line so it's obvious which one is active */}
-  {activeSuggested && (
-    <p
-      className="small-block-text"
-      style={{ marginTop: 8, fontStyle: "italic" }}
-    >
-      {activeSuggested === "outdated" &&
-        "Tip: focus on courses that haven’t been updated recently."}
-      {activeSuggested === "popular_external" &&
-        "Tip: look for external courses with strong enrollments or ratings."}
-      {activeSuggested === "low_completion" &&
-        "Tip: investigate courses where many learners start but don’t finish."}
-    </p>
-  )}
-</div>
-
+           
             </div>
           </div>
         </div>
