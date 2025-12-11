@@ -53,6 +53,14 @@ export default function AdminSidebar({
 
   return (
     <aside className="sidebar">
+      {/* Close button (mobile only) */}
+<button
+  className="sidebar-close-button"
+  onClick={onNavClick} // closes menu
+>
+  ✕
+</button>
+
       {/* Admin identity */}
       <div className="sidebar-profile">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

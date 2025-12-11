@@ -238,7 +238,14 @@ export default function AdminActivityPage() {
         fullName={adminProfile.full_name}
         email={adminProfile.email}
       />
-
+{/* OVERLAY – only renders when menu is open */}
+    {sidebarOpen && (
+      <button
+        className="sidebar-overlay"
+        onClick={() => setSidebarOpen(false)}
+        aria-label="Close menu"
+      />
+    )}
       <div className="main">
         {/* TOPBAR */}
         <div className="topbar">
