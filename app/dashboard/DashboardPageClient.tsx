@@ -51,6 +51,9 @@ export default function DashboardPage() {
   const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // NEW: mobile sidebar toggle
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // --------------------------------------------------
   // LOAD DASHBOARD DATA FROM SUPABASE
   // --------------------------------------------------
@@ -58,7 +61,6 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
-    // 1) Current user
     const {
       data: { user },
       error: userError,
@@ -70,7 +72,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // 2) Ensure a profile row exists for this user
     const { data: existingProfile, error: profileError } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -117,7 +118,6 @@ export default function DashboardPage() {
 
     setProfile(profileRow);
 
-    // 3) A few "active users"
     const { data: activeProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -130,7 +130,6 @@ export default function DashboardPage() {
       ? ["internal", "both", "external"]
       : ["external", "both"];
 
-    // 4) Enrollments + course info
     const { data: enrollments, error: enrollError } = await supabase
       .from("course_enrollments")
       .select("id, course_id, courses(*)")
@@ -147,7 +146,6 @@ export default function DashboardPage() {
 
     const enrolledCourseIds = enrolls.map((e) => e.course_id);
 
-    // 5) Recommended courses
     let recQuery = supabase
       .from("courses")
       .select("id, title, slug, audience")
@@ -169,7 +167,6 @@ export default function DashboardPage() {
 
     setRecommended((recCourses || []) as Course[]);
 
-    // 6) Lesson progress
     const { data: lessonProgress, error: lpError } = await supabase
       .from("lesson_progress")
       .select("lesson_id, completed:completed_at")
@@ -187,7 +184,6 @@ export default function DashboardPage() {
 
     setLessonsCompleted(completedLessonIds.length);
 
-    // 7) Lesson → course mapping to compute per-course progress
     let progressMap: Record<string, number> = {};
     let completedCoursesSet = new Set<string>();
 
@@ -226,7 +222,6 @@ export default function DashboardPage() {
     setProgressByCourse(progressMap);
     setCoursesCompleted(completedCoursesSet.size);
 
-    // 8) Certificates
     const { data: certRows, error: certError } = await supabase
       .from("certificates")
       .select("id")
@@ -252,9 +247,6 @@ export default function DashboardPage() {
     0
   );
 
-  // --------------------------------------------------
-  // LEARNING PATH STATUS (for card)
-  // --------------------------------------------------
   const hasEnrollment = inProgress.length > 0;
   const hasAnyLessonProgress = lessonsCompleted > 0;
   const hasCompletedCourse = coursesCompleted > 0;
@@ -275,9 +267,6 @@ export default function DashboardPage() {
     ? "In progress"
     : "Locked";
 
-  // --------------------------------------------------
-  // BUTTON HANDLERS
-  // --------------------------------------------------
   const routerPush = (path: string) => router.push(path);
 
   const handleViewAllCourses = () => routerPush("/courses");
@@ -326,18 +315,16 @@ export default function DashboardPage() {
     await loadDashboard();
   };
 
-  // --------------------------------------------------
-  // RENDER
-  // --------------------------------------------------
-
   if (loading) {
     return (
       <div className="dashboard-root">
-        <AppSidebar
-          active="dashboard"
-          fullName={profile?.full_name ?? null}
-          email={profile?.email ?? null}
-        />
+        <div className={`app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}>
+          <AppSidebar
+            active="dashboard"
+            fullName={profile?.full_name ?? null}
+            email={profile?.email ?? null}
+          />
+        </div>
         <main className="main" style={{ display: "flex", alignItems: "center" }}>
           <p>Loading dashboard…</p>
         </main>
@@ -350,18 +337,29 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-root">
-      {/* SIDEBAR COMPONENT */}
-      <AppSidebar
-        active="dashboard"
-        fullName={profile?.full_name ?? null}
-        email={profile?.email ?? null}
-      />
+      {/* SIDEBAR */}
+      <div className={`app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}>
+        <AppSidebar
+          active="dashboard"
+          fullName={profile?.full_name ?? null}
+          email={profile?.email ?? null}
+        />
+      </div>
 
       {/* MAIN */}
       <main className="main">
         {/* Top bar */}
         <div className="topbar">
-          <div>
+          {/* mobile menu button */}
+          <button
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label="Toggle sidebar"
+          >
+            ☰
+          </button>
+
+          <div className="topbar-text">
             <div className="topbar-title">
               Welcome back, {displayName.split(" ")[0]} 👋
             </div>
@@ -370,7 +368,8 @@ export default function DashboardPage() {
               Academy.
             </div>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+
+          <div className="topbar-actions">
             <button className="btn-secondary" onClick={handleViewAllCourses}>
               View all courses
             </button>
@@ -500,7 +499,6 @@ export default function DashboardPage() {
 
           {/* RIGHT COLUMN */}
           <div className="column-side">
-            {/* Learning path card */}
             <section className="block map-block">
               <div className="map-label">Learning path</div>
               <div className="map-title">Anchorp LMS Overview</div>
@@ -510,7 +508,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="map-steps">
-                {/* Step 1 */}
                 <div
                   className={
                     "map-step" + (hasEnrollment ? " map-step-active" : "")
@@ -518,13 +515,7 @@ export default function DashboardPage() {
                 >
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 1</div>
                         <div className="map-step-meta">
@@ -536,7 +527,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Step 2 */}
                 <div
                   className={
                     "map-step" +
@@ -547,13 +537,7 @@ export default function DashboardPage() {
                 >
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 2</div>
                         <div className="map-step-meta">
@@ -565,7 +549,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Step 3 */}
                 <div
                   className={
                     "map-step" + (hasCertificate ? " map-step-active" : "")
@@ -573,13 +556,7 @@ export default function DashboardPage() {
                 >
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 3</div>
                         <div className="map-step-meta">
@@ -631,7 +608,6 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* tiny style just for the status text on dark green card */}
       <style jsx>{`
         .map-step-status {
           font-size: 0.7rem;
