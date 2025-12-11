@@ -817,12 +817,31 @@ body {
   z-index: 40;           /* under .app-sidebar (z-index: 50) */
   display: none;         /* hidden by default, shown in mobile media query */
 }
+.sidebar-close-button {
+  display: none;
+}
 
 @media (max-width: 768px) {
   .dashboard-root,
   .admin-root {
     flex-direction: column;
   }
+  .sidebar-close-button {
+  display: block;
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  color: white;
+  cursor: pointer;
+  z-index: 60;
+}
+.sidebar {
+  position: relative;
+}
+
 
   /* Dropdown sidebar wrapper */
   .app-sidebar {
