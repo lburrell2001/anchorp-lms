@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -11,7 +11,11 @@ type Profile = {
 
 type UserType = "internal" | "external";
 
-export default function SignupPage() {
+/**
+ * Inner signup component that actually uses hooks like useSearchParams.
+ * This MUST be wrapped in <Suspense> in the default export.
+ */
+function SignupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -122,7 +126,9 @@ export default function SignupPage() {
         <p style={{ fontSize: 13, marginBottom: 16, color: "#4b5563" }}>
           You’re signing up as{" "}
           <strong>
-            {userTypeParam === "internal" ? "Internal Employee" : "External Customer"}
+            {userTypeParam === "internal"
+              ? "Internal Employee"
+              : "External Customer"}
           </strong>
           {roleParam === "admin" && " (Admin)"}.
         </p>
@@ -181,5 +187,17 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Default export: wraps inner signup page in Suspense.
+ * This fixes the "useSearchParams should be wrapped in a suspense boundary" error.
+ */
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupPageInner />
+    </Suspense>
   );
 }
