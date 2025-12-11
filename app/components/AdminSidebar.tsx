@@ -32,15 +32,24 @@ export default function AdminSidebar({
   const itemClass = (key: AdminSidebarProps["active"]) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
-  const handleLogout = async () => {
+    const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      console.log("Logging out admin…");
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Error signing out:", error.message);
+      }
     } catch (err) {
-      console.error("Error signing out", err);
+      console.error("Unexpected error signing out:", err);
     } finally {
-      router.replace("/login");
+      // Hard redirect so ALL client state/layout resets
+      window.location.href = "/login";
+      // (if you prefer SPA style you could do router.push("/login"), 
+      // but the hard reload is safest here)
     }
   };
+
 
   return (
     <aside className="sidebar">

@@ -25,16 +25,6 @@ type Profile = {
   user_type: "internal" | "external" | null;
 };
 
-function getInitials(name: string | null | undefined) {
-  if (!name) return "U";
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (
-    parts[0].charAt(0).toUpperCase() +
-    parts[parts.length - 1].charAt(0).toUpperCase()
-  );
-}
-
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -51,7 +41,7 @@ export default function DashboardPage() {
   const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: mobile sidebar toggle
+  // 🔹 NEW: controls hamburger sidebar state on this page
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // --------------------------------------------------
@@ -61,6 +51,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
+    // 1) Current user
     const {
       data: { user },
       error: userError,
@@ -72,6 +63,7 @@ export default function DashboardPage() {
       return;
     }
 
+    // 2) Ensure a profile row exists for this user
     const { data: existingProfile, error: profileError } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -118,6 +110,7 @@ export default function DashboardPage() {
 
     setProfile(profileRow);
 
+    // 3) A few "active users"
     const { data: activeProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -130,6 +123,7 @@ export default function DashboardPage() {
       ? ["internal", "both", "external"]
       : ["external", "both"];
 
+    // 4) Enrollments + course info
     const { data: enrollments, error: enrollError } = await supabase
       .from("course_enrollments")
       .select("id, course_id, courses(*)")
@@ -146,6 +140,7 @@ export default function DashboardPage() {
 
     const enrolledCourseIds = enrolls.map((e) => e.course_id);
 
+    // 5) Recommended courses
     let recQuery = supabase
       .from("courses")
       .select("id, title, slug, audience")
@@ -167,6 +162,7 @@ export default function DashboardPage() {
 
     setRecommended((recCourses || []) as Course[]);
 
+    // 6) Lesson progress
     const { data: lessonProgress, error: lpError } = await supabase
       .from("lesson_progress")
       .select("lesson_id, completed:completed_at")
@@ -184,6 +180,7 @@ export default function DashboardPage() {
 
     setLessonsCompleted(completedLessonIds.length);
 
+    // 7) Lesson → course mapping to compute per-course progress
     let progressMap: Record<string, number> = {};
     let completedCoursesSet = new Set<string>();
 
@@ -222,6 +219,7 @@ export default function DashboardPage() {
     setProgressByCourse(progressMap);
     setCoursesCompleted(completedCoursesSet.size);
 
+    // 8) Certificates
     const { data: certRows, error: certError } = await supabase
       .from("certificates")
       .select("id")
@@ -247,6 +245,7 @@ export default function DashboardPage() {
     0
   );
 
+  // Learning path status
   const hasEnrollment = inProgress.length > 0;
   const hasAnyLessonProgress = lessonsCompleted > 0;
   const hasCompletedCourse = coursesCompleted > 0;
@@ -267,6 +266,7 @@ export default function DashboardPage() {
     ? "In progress"
     : "Locked";
 
+  // BUTTON HANDLERS
   const routerPush = (path: string) => router.push(path);
 
   const handleViewAllCourses = () => routerPush("/courses");
@@ -323,6 +323,7 @@ export default function DashboardPage() {
             active="dashboard"
             fullName={profile?.full_name ?? null}
             email={profile?.email ?? null}
+            onNavClick={() => setSidebarOpen(false)}
           />
         </div>
         <main className="main" style={{ display: "flex", alignItems: "center" }}>
@@ -337,24 +338,24 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-root">
-      {/* SIDEBAR */}
+      {/* SIDEBAR WRAPPER */}
       <div className={`app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}>
         <AppSidebar
           active="dashboard"
           fullName={profile?.full_name ?? null}
           email={profile?.email ?? null}
+          onNavClick={() => setSidebarOpen(false)}
         />
       </div>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <main className="main">
-        {/* Top bar */}
+        {/* Top bar with hamburger */}
         <div className="topbar">
-          {/* mobile menu button */}
           <button
             className="mobile-menu-button"
             onClick={() => setSidebarOpen((open) => !open)}
-            aria-label="Toggle sidebar"
+            aria-label="Toggle navigation"
           >
             ☰
           </button>
@@ -499,6 +500,7 @@ export default function DashboardPage() {
 
           {/* RIGHT COLUMN */}
           <div className="column-side">
+            {/* Learning path card */}
             <section className="block map-block">
               <div className="map-label">Learning path</div>
               <div className="map-title">Anchorp LMS Overview</div>
@@ -508,6 +510,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="map-steps">
+                {/* Step 1 */}
                 <div
                   className={
                     "map-step" + (hasEnrollment ? " map-step-active" : "")
@@ -527,6 +530,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Step 2 */}
                 <div
                   className={
                     "map-step" +
@@ -549,6 +553,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Step 3 */}
                 <div
                   className={
                     "map-step" + (hasCertificate ? " map-step-active" : "")
@@ -608,6 +613,7 @@ export default function DashboardPage() {
         )}
       </main>
 
+      {/* tiny style just for the status text on dark green card */}
       <style jsx>{`
         .map-step-status {
           font-size: 0.7rem;
