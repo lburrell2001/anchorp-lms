@@ -2,8 +2,11 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AnchorP LMS",
-  description: "Training LMS",
+  title: "Anchor Academy",
+  description: "Anchor Products Training Academy",
+  icons: {
+    icon: "/logoicon.png", // uses /public/logoicon.png
+  },
 };
 
 export default function RootLayout({
@@ -17,3 +20,4 @@ export default function RootLayout({
     </html>
   );
 }
+
