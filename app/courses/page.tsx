@@ -32,6 +32,9 @@ export default function AllCoursesPage() {
   const [error, setError] = useState<string | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -64,10 +67,11 @@ export default function AllCoursesPage() {
           email.split("@")[0] ||
           "Learner";
 
-        const defaultType: "internal" | "external" =
-          email.toLowerCase().endsWith("@anchorp.com")
-            ? "internal"
-            : "external";
+        const defaultType: "internal" | "external" = email
+          .toLowerCase()
+          .endsWith("@anchorp.com")
+          ? "internal"
+          : "external";
 
         const { data: inserted, error: insertError } = await supabase
           .from("profiles")
@@ -91,8 +95,8 @@ export default function AllCoursesPage() {
       // ----- DETERMINE WHICH AUDIENCES THIS USER CAN SEE -----
       const isInternal = effectiveUserType === "internal";
       const allowedAudiences: ("internal" | "external" | "both")[] = isInternal
-        ? ["internal", "both", "external"] // internal can see everything
-        : ["external", "both"]; // external can't see internal-only
+        ? ["internal", "both", "external"]
+        : ["external", "both"];
 
       // ----- COURSES (filtered by audience) -----
       const { data: courseRows, error: courseError } = await supabase
@@ -103,17 +107,6 @@ export default function AllCoursesPage() {
 
       if (courseError) throw courseError;
       setCourses((courseRows || []) as Course[]);
-
-      // If you have any legacy rows with audience = null and want them visible
-      // to everyone, swap the block above for this:
-      //
-      // const { data: courseRows, error: courseError } = await supabase
-      //   .from("courses")
-      //   .select("id, title, description, audience, slug")
-      //   .or(
-      //     `audience.is.null,audience.in.(${allowedAudiences.join(",")})`
-      //   )
-      //   .order("title", { ascending: true });
 
       // ----- USER ENROLLMENTS -----
       const { data: enrollmentRows, error: enrollmentError } = await supabase
@@ -175,12 +168,38 @@ export default function AllCoursesPage() {
 
   return (
     <div className="dashboard-root">
-      {/* Shared dashboard sidebar */}
-      <AppSidebar active="all-courses" fullName={fullName} email={email} />
+      {/* ✅ SIDEBAR DROPDOWN WRAPPER */}
+      <AppSidebar
+        active="all-courses"
+        fullName={fullName}
+        email={email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ✅ OVERLAY (click closes) */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       {/* MAIN */}
       <main className="main">
         <div className="topbar">
+          {/* ✅ HAMBURGER (shows on mobile via your CSS) */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">All courses</div>
             <div className="topbar-subtitle">
@@ -193,13 +212,7 @@ export default function AllCoursesPage() {
           {loading && <p>Loading courses...</p>}
 
           {error && (
-            <p
-              style={{
-                marginBottom: 12,
-                fontSize: "0.8rem",
-                color: "#b91c1c",
-              }}
-            >
+            <p style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}>
               {error}
             </p>
           )}
@@ -232,78 +245,49 @@ export default function AllCoursesPage() {
                   }}
                 >
                   <div>
-                    <div
-                      style={{
-                        fontSize: "0.95rem",
-                        fontWeight: 600,
-                        color: "#111827",
-                      }}
-                    >
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111827" }}>
                       {course.title}
                     </div>
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: "0.8rem",
-                        color: "#4b5563",
-                      }}
-                    >
+
+                    <div style={{ marginTop: 4, fontSize: "0.8rem", color: "#4b5563" }}>
                       {course.description || "No description provided yet."}
                     </div>
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: "0.75rem",
-                        color: "#6b7280",
-                      }}
-                    >
+
+                    <div style={{ marginTop: 4, fontSize: "0.75rem", color: "#6b7280" }}>
                       Audience: {audienceLabel}
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
                     {isEnrolled ? (
-  <>
-    <span
-      style={{
-        fontSize: "0.75rem",
-        fontWeight: 600,
-        color: "#047857",
-      }}
-    >
-      ✓ Enrolled
-    </span>
-    <button
-      type="button"
-      className="btn-primary"
-      onClick={() => (window.location.href = `/courses/${course.slug}`)}
-    >
-      Go to course
-    </button>
-  </>
-) : (
-  <button
-    type="button"
-    className="btn-primary"
-    onClick={() => handleEnroll(course.id)}
-    disabled={enrollingId === course.id}
-    style={
-      enrollingId === course.id
-        ? { opacity: 0.7, cursor: "default" }
-        : undefined
-    }
-  >
-    {enrollingId === course.id ? "Enrolling..." : "Enroll"}
-  </button>
-)}
+                      <>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#047857" }}>
+                          ✓ Enrolled
+                        </span>
 
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => (window.location.href = `/courses/${course.slug}`)}
+                        >
+                          Go to course
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => handleEnroll(course.id)}
+                        disabled={enrollingId === course.id}
+                        style={
+                          enrollingId === course.id
+                            ? { opacity: 0.7, cursor: "default" }
+                            : undefined
+                        }
+                      >
+                        {enrollingId === course.id ? "Enrolling..." : "Enroll"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -47,10 +47,19 @@ export default function AdminActivityPage() {
   // ---------- AUTH / ADMIN CHECK ----------
   const loadProfile = useCallback(async () => {
     setLoadingProfile(true);
+    setError(null);
 
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error(sessionError);
+      setError("Could not verify your session.");
+      setLoadingProfile(false);
+      return;
+    }
 
     if (!session?.user) {
       setLoadingProfile(false);
@@ -193,17 +202,17 @@ export default function AdminActivityPage() {
   if (!adminProfile) return null;
 
   return (
-    <div className="dashboard-root">
+    <div className="dashboard-root admin-root">
       {/* ✅ Sidebar (mobile dropdown capable) */}
       <AdminSidebar
         active="activity"
         fullName={adminProfile.full_name}
         email={adminProfile.email}
-        isOpen={sidebarOpen}                 // ✅ REQUIRED
+        isOpen={sidebarOpen}
         onNavClick={() => setSidebarOpen(false)}
       />
 
-      {/* ✅ Overlay (closes menu) */}
+      {/* ✅ Overlay (tap to close) */}
       {sidebarOpen && (
         <button
           type="button"
@@ -215,7 +224,7 @@ export default function AdminActivityPage() {
 
       <div className="main">
         <div className="topbar">
-          {/* ✅ Hamburger uses your existing CSS class */}
+          {/* ✅ Hamburger (mobile only via CSS) */}
           <button
             type="button"
             className="mobile-menu-button"
@@ -244,10 +253,18 @@ export default function AdminActivityPage() {
                 Pulled from <code>lesson_progress</code> and <code>course_enrollments</code>.
               </p>
 
+              {error && (
+                <p style={{ marginBottom: 8, fontSize: 12, color: "#b91c1c" }}>
+                  {error}
+                </p>
+              )}
+
               {loadingStats ? (
                 <p className="small-block-text">Loading activity…</p>
               ) : activity.length === 0 ? (
-                <p className="small-block-text">No completions or enrollments in the last 7 days.</p>
+                <p className="small-block-text">
+                  No completions or enrollments in the last 7 days.
+                </p>
               ) : (
                 <div className="course-list">
                   {activity.map((day) => (
@@ -258,6 +275,9 @@ export default function AdminActivityPage() {
                           {day.completions} completion{day.completions === 1 ? "" : "s"} •{" "}
                           {day.enrollments} enrollment{day.enrollments === 1 ? "" : "s"}
                         </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>
+                        {day.iso}
                       </div>
                     </div>
                   ))}
@@ -271,16 +291,6 @@ export default function AdminActivityPage() {
               <div className="block-header">
                 <div className="block-title">Key Metrics</div>
               </div>
-
-              {error && (
-                <p style={{ marginBottom: 8, fontSize: 12, color: "#b91c1c" }}>
-                  {error}
-                </p>
-              )}
-
-              <p className="small-block-text">
-                Snapshot based on the same core tables as your admin overview.
-              </p>
 
               <div className="stats-row" style={{ marginTop: 10 }}>
                 <div className="stat-card">
@@ -296,7 +306,9 @@ export default function AdminActivityPage() {
                 <div className="stat-card">
                   <div className="stat-label">Active Learners (30 days)</div>
                   <div className="stat-value">{metrics.activeLearners30d}</div>
-                  <div className="small-block-text">Unique users with at least one completion.</div>
+                  <div className="small-block-text">
+                    Unique users with at least one completion.
+                  </div>
                 </div>
               </div>
             </div>

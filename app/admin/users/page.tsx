@@ -16,7 +16,6 @@ type Profile = {
 
 // role is now “whatever is in profiles.role”, but we still keep some known options
 type RoleOption = "" | "admin" | "employee" | "potential_customer";
-
 type InviteMode = null | "internal" | "external" | "admin";
 
 export default function AdminUsersPage() {
@@ -41,6 +40,9 @@ export default function AdminUsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ---------- LOAD ADMIN ----------
   useEffect(() => {
@@ -114,14 +116,7 @@ export default function AdminUsersPage() {
       setUpdateMessage("Error updating role. Please try again.");
     } else {
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                role: roleToSave,
-              }
-            : u
-        )
+        prev.map((u) => (u.id === userId ? { ...u, role: roleToSave } : u))
       );
       setUpdateMessage("Role updated.");
       setTimeout(() => setUpdateMessage(null), 2500);
@@ -169,17 +164,14 @@ export default function AdminUsersPage() {
     setInviteMessage(null);
 
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
 
       // user_type + role to attach to metadata
       const userType: "internal" | "external" =
         inviteMode === "external" ? "external" : "internal"; // admins are internal
       const role = inviteMode === "admin" ? "admin" : null;
 
-      const redirectParams = new URLSearchParams({
-        type: userType,
-      });
+      const redirectParams = new URLSearchParams({ type: userType });
       if (role) redirectParams.set("role", role);
 
       const redirectTo = `${origin}/signup?${redirectParams.toString()}`;
@@ -206,9 +198,7 @@ export default function AdminUsersPage() {
             : inviteMode === "external"
             ? "external"
             : "admin";
-        setInviteMessage(
-          `Invite sent to ${inviteEmail.trim()} (${label} user).`
-        );
+        setInviteMessage(`Invite sent to ${inviteEmail.trim()} (${label} user).`);
         setInviteEmail("");
         setInviteMode(null);
       }
@@ -221,21 +211,43 @@ export default function AdminUsersPage() {
   };
 
   // ---------- RENDER ----------
-
   if (loadingAdmin || !adminProfile) {
     return <div style={{ padding: 24 }}>Loading…</div>;
   }
 
   return (
-    <div className="dashboard-root">
+    <div className="dashboard-root admin-root">
+      {/* ✅ ADMIN SIDEBAR (mobile dropdown capable) */}
       <AdminSidebar
         active="users"
         fullName={adminProfile.full_name}
         email={adminProfile.email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
       />
+
+      {/* ✅ Overlay closes menu */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       <div className="main">
         <div className="topbar">
+          {/* ✅ Hamburger opens menu */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">Users &amp; Roles</div>
             <div className="topbar-subtitle">
@@ -417,10 +429,7 @@ export default function AdminUsersPage() {
                             <select
                               value={(u.role as RoleOption) || ""}
                               onChange={(e) =>
-                                handleRoleChange(
-                                  u.id,
-                                  e.target.value as RoleOption
-                                )
+                                handleRoleChange(u.id, e.target.value as RoleOption)
                               }
                               disabled={updatingUserId === u.id}
                               style={{
@@ -463,9 +472,7 @@ export default function AdminUsersPage() {
                   style={{
                     marginTop: 8,
                     fontSize: 12,
-                    color: updateMessage.includes("Error")
-                      ? "#b91c1c"
-                      : "#047857",
+                    color: updateMessage.includes("Error") ? "#b91c1c" : "#047857",
                   }}
                 >
                   {updateMessage}
@@ -481,8 +488,8 @@ export default function AdminUsersPage() {
                 <div className="block-title">Quick Actions</div>
               </div>
               <p className="small-block-text">
-                Invite new learners or admins to Anchor Academy. They&apos;ll
-                receive an email with a link to a pre-configured signup page.
+                Invite new learners or admins to Anchor Academy. They&apos;ll receive an email
+                with a link to a pre-configured signup page.
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -562,9 +569,7 @@ export default function AdminUsersPage() {
                   style={{
                     marginTop: 10,
                     fontSize: 12,
-                    color: inviteMessage.startsWith("Error")
-                      ? "#b91c1c"
-                      : "#047857",
+                    color: inviteMessage.startsWith("Error") ? "#b91c1c" : "#047857",
                   }}
                 >
                   {inviteMessage}

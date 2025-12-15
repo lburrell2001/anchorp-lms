@@ -39,6 +39,8 @@ type CourseFormState = {
   audience: "internal" | "external" | "both";
 };
 
+type SuggestedActionKey = "outdated" | "popular_external" | "low_completion";
+
 export default function AdminCoursesPage() {
   const router = useRouter();
 
@@ -59,15 +61,16 @@ export default function AdminCoursesPage() {
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
 
   // suggested actions
-  const [suggestionMessage, setSuggestionMessage] = useState<string | null>(
-    null
-  );
-  
+  const [activeSuggested, setActiveSuggested] =
+    useState<SuggestedActionKey | null>(null);
+
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ----- COURSE MANAGEMENT STATE -----
-  const [selectedCourseId, setSelectedCourseId] = useState<
-    string | "new" | null
-  >(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | "new" | null>(
+    null
+  );
   const [courseForm, setCourseForm] = useState<CourseFormState>({
     title: "",
     slug: "",
@@ -156,14 +159,8 @@ export default function AdminCoursesPage() {
       if (!coursesRaw.length) {
         setCourses([]);
         setLoadingCourses(false);
-        // If no courses, reset selection
         setSelectedCourseId("new");
-        setCourseForm({
-          title: "",
-          slug: "",
-          description: "",
-          audience: "both",
-        });
+        setCourseForm({ title: "", slug: "", description: "", audience: "both" });
         return;
       }
 
@@ -187,7 +184,6 @@ export default function AdminCoursesPage() {
 
         setCourses(withCounts);
 
-        // 🔑 Only auto-select the first course if NOTHING is selected yet.
         if (!selectedCourseId) {
           const first = withCounts[0];
           if (first) {
@@ -196,19 +192,11 @@ export default function AdminCoursesPage() {
               title: first.title,
               slug: first.slug,
               description: first.description ?? "",
-              audience: (first.audience ?? "both") as
-                | "internal"
-                | "external"
-                | "both",
+              audience: (first.audience ?? "both") as "internal" | "external" | "both",
             });
           } else {
             setSelectedCourseId("new");
-            setCourseForm({
-              title: "",
-              slug: "",
-              description: "",
-              audience: "both",
-            });
+            setCourseForm({ title: "", slug: "", description: "", audience: "both" });
           }
         }
 
@@ -216,9 +204,7 @@ export default function AdminCoursesPage() {
         return;
       }
 
-      const uniqueUserIds = Array.from(
-        new Set(enrollments.map((e) => e.user_id))
-      );
+      const uniqueUserIds = Array.from(new Set(enrollments.map((e) => e.user_id)));
 
       const { data: profileRows, error: profilesError } = await supabase
         .from("profiles")
@@ -231,11 +217,9 @@ export default function AdminCoursesPage() {
         string,
         { user_type: "internal" | "external" | null; role: string | null }
       >();
+
       (profileRows || []).forEach((p: any) => {
-        userMap.set(p.id, {
-          user_type: p.user_type,
-          role: p.role,
-        });
+        userMap.set(p.id, { user_type: p.user_type, role: p.role });
       });
 
       const totalMap = new Map<string, number>();
@@ -244,20 +228,14 @@ export default function AdminCoursesPage() {
 
       enrollments.forEach((enr) => {
         const user = userMap.get(enr.user_id);
-        if (user?.role === "admin") return; // don't count admin enrollments
+        if (user?.role === "admin") return;
 
         totalMap.set(enr.course_id, (totalMap.get(enr.course_id) || 0) + 1);
 
         if (user?.user_type === "internal") {
-          internalMap.set(
-            enr.course_id,
-            (internalMap.get(enr.course_id) || 0) + 1
-          );
+          internalMap.set(enr.course_id, (internalMap.get(enr.course_id) || 0) + 1);
         } else if (user?.user_type === "external") {
-          externalMap.set(
-            enr.course_id,
-            (externalMap.get(enr.course_id) || 0) + 1
-          );
+          externalMap.set(enr.course_id, (externalMap.get(enr.course_id) || 0) + 1);
         }
       });
 
@@ -270,10 +248,7 @@ export default function AdminCoursesPage() {
 
       setCourses(withCounts);
 
-      // 🔑 IMPORTANT PART: don't overwrite when admin chose "new"
-      // reset / hydrate the current selection if needed
       if (!selectedCourseId) {
-        // nothing selected yet -> default to first course
         const first = withCounts[0];
         if (first) {
           setSelectedCourseId(first.id);
@@ -281,42 +256,24 @@ export default function AdminCoursesPage() {
             title: first.title,
             slug: first.slug,
             description: first.description ?? "",
-            audience: (first.audience ?? "both") as
-              | "internal"
-              | "external"
-              | "both",
+            audience: (first.audience ?? "both") as "internal" | "external" | "both",
           });
         } else {
           setSelectedCourseId("new");
-          setCourseForm({
-            title: "",
-            slug: "",
-            description: "",
-            audience: "both",
-          });
+          setCourseForm({ title: "", slug: "", description: "", audience: "both" });
         }
       } else if (selectedCourseId !== "new") {
-        // only hydrate form when we have an existing course selected
         const existing = withCounts.find((c) => c.id === selectedCourseId);
         if (existing) {
           setCourseForm({
             title: existing.title,
             slug: existing.slug,
             description: existing.description ?? "",
-            audience: (existing.audience ?? "both") as
-              | "internal"
-              | "external"
-              | "both",
+            audience: (existing.audience ?? "both") as "internal" | "external" | "both",
           });
         } else {
-          // if previously selected course disappeared, fall back to "new"
           setSelectedCourseId("new");
-          setCourseForm({
-            title: "",
-            slug: "",
-            description: "",
-            audience: "both",
-          });
+          setCourseForm({ title: "", slug: "", description: "", audience: "both" });
         }
       }
     } catch (err: any) {
@@ -329,12 +286,10 @@ export default function AdminCoursesPage() {
   }, [selectedCourseId]);
 
   useEffect(() => {
-    if (adminProfile?.role === "admin") {
-      loadCourses();
-    }
+    if (adminProfile?.role === "admin") loadCourses();
   }, [adminProfile, loadCourses]);
 
-  // ---------- ASSIGN COURSE (dropdown of profiles) ----------
+  // ---------- ASSIGN COURSE ----------
   const startAssign = (courseId: string) => {
     setAssignCourseId(courseId);
     setAssignUserId("");
@@ -347,10 +302,7 @@ export default function AdminCoursesPage() {
     setAssignMessage(null);
   };
 
-  const handleAssignSubmit = async (
-    e: FormEvent<HTMLFormElement>,
-    courseId: string
-  ) => {
+  const handleAssignSubmit = async (e: FormEvent<HTMLFormElement>, courseId: string) => {
     e.preventDefault();
 
     if (!assignUserId) {
@@ -370,45 +322,33 @@ export default function AdminCoursesPage() {
 
       const profile = assignableUsers.find((u) => u.id === assignUserId);
       if (!profile) {
-        setAssignMessage(
-          "That learner is no longer available. Please refresh the page."
-        );
+        setAssignMessage("That learner is no longer available. Please refresh the page.");
         return;
       }
 
       if (profile.role === "admin") {
-        setAssignMessage(
-          "This account is an admin. Admins don’t need course assignments."
-        );
+        setAssignMessage("This account is an admin. Admins don’t need course assignments.");
         return;
       }
 
-      // audience rules still enforced
       if (course.audience === "internal" && profile.user_type === "external") {
-        setAssignMessage(
-          "This course is for internal employees only and can’t be assigned to an external learner."
-        );
+        setAssignMessage("This course is internal only and can’t be assigned to an external learner.");
         return;
       }
 
       if (course.audience === "external" && profile.user_type === "internal") {
         setAssignMessage(
-          "This course is targeted to external learners. If you’d like internal learners to see it, change the audience to 'both'."
+          "This course is targeted to external learners. Change the audience to 'both' to include internal learners."
         );
         return;
       }
 
-      // already enrolled?
-      const { data: existing, error: existingError } = await supabase
+      const { data: existing } = await supabase
         .from("course_enrollments")
         .select("id")
         .eq("user_id", profile.id)
         .eq("course_id", courseId)
         .maybeSingle();
-
-      if (existingError && existingError.code !== "PGRST116") {
-        console.error("Existing enrollment error:", existingError);
-      }
 
       if (existing) {
         setAssignMessage(
@@ -417,19 +357,15 @@ export default function AdminCoursesPage() {
         return;
       }
 
-      const { error: insertError } = await supabase
-        .from("course_enrollments")
-        .insert({
-          user_id: profile.id,
-          course_id: courseId,
-        });
+      const { error: insertError } = await supabase.from("course_enrollments").insert({
+        user_id: profile.id,
+        course_id: courseId,
+      });
 
       if (insertError) throw insertError;
 
       setAssignMessage(
-        `Course assigned to ${
-          profile.full_name || profile.email || "the selected learner"
-        } successfully.`
+        `Course assigned to ${profile.full_name || profile.email || "the selected learner"} successfully.`
       );
 
       await loadCourses();
@@ -437,108 +373,22 @@ export default function AdminCoursesPage() {
       setAssignUserId("");
     } catch (err: any) {
       console.error("Error assigning course:", err);
-      setAssignMessage(
-        err.message ?? "Something went wrong assigning this course."
-      );
+      setAssignMessage(err.message ?? "Something went wrong assigning this course.");
     } finally {
       setAssignLoading(false);
     }
   };
 
-  // ---------- SUGGESTED ACTION BUTTONS ----------
-  // Which suggested action is currently active, if any
-type SuggestedActionKey = "outdated" | "popular_external" | "low_completion";
+  // ---------- SUGGESTED ACTIONS ----------
+  const handleSuggestedClick = (action: SuggestedActionKey) => {
+    setActiveSuggested((prev) => (prev === action ? null : action));
+  };
 
-const [activeSuggested, setActiveSuggested] =
-  useState<SuggestedActionKey | null>(null);
-
-const handleSuggestedClick = (action: SuggestedActionKey) => {
-  // clicking the same button again turns it off
-  setActiveSuggested((prev) => (prev === action ? null : action));
-};
-
-  <div className="block">
-  <div className="block-header">
-    <div className="block-title">Suggested Actions</div>
-  </div>
-  <p className="small-block-text">
-    Use these quick actions to keep Anchor Academy clean and high-impact.
-  </p>
-
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-      marginTop: 12,
-    }}
-  >
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "outdated" ? 1 : 0.8,
-        fontWeight: activeSuggested === "outdated" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("outdated")}
-    >
-      Review outdated courses
-    </button>
-
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "popular_external" ? 1 : 0.8,
-        fontWeight: activeSuggested === "popular_external" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("popular_external")}
-    >
-      Highlight popular external courses
-    </button>
-
-    <button
-      type="button"
-      className="btn-secondary"
-      style={{
-        opacity: activeSuggested === "low_completion" ? 1 : 0.8,
-        fontWeight: activeSuggested === "low_completion" ? 600 : 500,
-      }}
-      onClick={() => handleSuggestedClick("low_completion")}
-    >
-      Investigate low-completion courses
-    </button>
-  </div>
-
-  {/* Tiny helper line so it's obvious which one is active */}
-  {activeSuggested && (
-    <p
-      className="small-block-text"
-      style={{ marginTop: 8, fontStyle: "italic" }}
-    >
-      {activeSuggested === "outdated" &&
-        "Tip: focus on courses that haven’t been updated recently."}
-      {activeSuggested === "popular_external" &&
-        "Tip: look for external courses with strong enrollments or ratings."}
-      {activeSuggested === "low_completion" &&
-        "Tip: investigate courses where many learners start but don’t finish."}
-    </p>
-  )}
-</div>
-
-
-
-  // ---------- COURSE MANAGEMENT (view / edit / add / delete) ----------
-
+  // ---------- COURSE MANAGEMENT ----------
   const handleSelectExistingCourse = (courseId: string) => {
     if (courseId === "new") {
       setSelectedCourseId("new");
-      setCourseForm({
-        title: "",
-        slug: "",
-        description: "",
-        audience: "both",
-      });
+      setCourseForm({ title: "", slug: "", description: "", audience: "both" });
       setCourseMessage(null);
       return;
     }
@@ -556,14 +406,8 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
     setCourseMessage(null);
   };
 
-  const handleCourseInputChange = (
-    field: keyof CourseFormState,
-    value: string
-  ) => {
-    setCourseForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleCourseInputChange = (field: keyof CourseFormState, value: string) => {
+    setCourseForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleCourseSave = async (e: FormEvent<HTMLFormElement>) => {
@@ -591,34 +435,20 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
 
     try {
       if (!selectedCourseId || selectedCourseId === "new") {
-        // CREATE NEW COURSE
         const { data, error } = await supabase
           .from("courses")
-          .insert({
-            title,
-            slug,
-            description,
-            audience,
-          })
+          .insert({ title, slug, description, audience })
           .select("id")
           .single();
 
         if (error) throw error;
 
         setCourseMessage("New course created successfully.");
-        if (data?.id) {
-          setSelectedCourseId(data.id);
-        }
+        if (data?.id) setSelectedCourseId(data.id);
       } else {
-        // UPDATE EXISTING COURSE
         const { error } = await supabase
           .from("courses")
-          .update({
-            title,
-            slug,
-            description,
-            audience,
-          })
+          .update({ title, slug, description, audience })
           .eq("id", selectedCourseId);
 
         if (error) throw error;
@@ -629,9 +459,7 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
       await loadCourses();
     } catch (err: any) {
       console.error("Error saving course:", err);
-      setCourseMessage(
-        err.message ?? "Something went wrong saving this course."
-      );
+      setCourseMessage(err.message ?? "Something went wrong saving this course.");
     } finally {
       setSavingCourse(false);
     }
@@ -652,38 +480,18 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
     setCourseMessage(null);
 
     try {
-      // delete enrollments for that course
-      const { error: enrollError } = await supabase
-        .from("course_enrollments")
-        .delete()
-        .eq("course_id", selectedCourseId);
-
-      if (enrollError) {
-        console.error("Error deleting course enrollments:", enrollError);
-      }
-
-      const { error: deleteError } = await supabase
-        .from("courses")
-        .delete()
-        .eq("id", selectedCourseId);
-
+      await supabase.from("course_enrollments").delete().eq("course_id", selectedCourseId);
+      const { error: deleteError } = await supabase.from("courses").delete().eq("id", selectedCourseId);
       if (deleteError) throw deleteError;
 
       setCourseMessage("Course deleted successfully.");
       setSelectedCourseId("new");
-      setCourseForm({
-        title: "",
-        slug: "",
-        description: "",
-        audience: "both",
-      });
+      setCourseForm({ title: "", slug: "", description: "", audience: "both" });
 
       await loadCourses();
     } catch (err: any) {
       console.error("Error deleting course:", err);
-      setCourseMessage(
-        err.message ?? "Something went wrong deleting this course."
-      );
+      setCourseMessage(err.message ?? "Something went wrong deleting this course.");
     } finally {
       setSavingCourse(false);
     }
@@ -697,27 +505,48 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
   };
 
   // ---------- RENDER ----------
-
   if (loadingAdmin || !adminProfile) {
     return <div style={{ padding: 24 }}>Loading…</div>;
   }
 
   return (
-    <div className="dashboard-root">
+    <div className="dashboard-root admin-root">
+      {/* ✅ ADMIN SIDEBAR + MOBILE OPEN/CLOSE */}
       <AdminSidebar
         active="courses"
         fullName={adminProfile.full_name}
         email={adminProfile.email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
       />
+
+      {/* ✅ Overlay closes */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       <div className="main">
         {/* TOPBAR */}
         <div className="topbar">
+          {/* ✅ Hamburger */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">Courses &amp; Enrollments</div>
             <div className="topbar-subtitle">
-              See which courses are live, assign training, and manage course
-              details for Anchor Academy.
+              See which courses are live, assign training, and manage course details for Anchor Academy.
             </div>
           </div>
         </div>
@@ -731,13 +560,7 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
               </div>
 
               {error && (
-                <p
-                  style={{
-                    marginBottom: 8,
-                    fontSize: 12,
-                    color: "#b91c1c",
-                  }}
-                >
+                <p style={{ marginBottom: 8, fontSize: 12, color: "#b91c1c" }}>
                   {error}
                 </p>
               )}
@@ -746,15 +569,11 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 <p className="small-block-text">Loading courses…</p>
               ) : courses.length === 0 ? (
                 <p className="small-block-text">
-                  No courses found. Use the Course Management panel to create
-                  your first course.
+                  No courses found. Use the Course Management panel to create your first course.
                 </p>
               ) : (
                 <div style={{ overflowX: "auto" }}>
-                  <table
-                    className="admin-table"
-                    style={{ width: "100%", fontSize: 13 }}
-                  >
+                  <table className="admin-table" style={{ width: "100%", fontSize: 13 }}>
                     <thead>
                       <tr>
                         <th>Course</th>
@@ -768,40 +587,21 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                     <tbody>
                       {courses.map((course) => {
                         let audienceLabel = "Internal & external";
-                        if (course.audience === "internal")
-                          audienceLabel = "Internal only";
-                        if (course.audience === "external")
-                          audienceLabel = "External only";
+                        if (course.audience === "internal") audienceLabel = "Internal only";
+                        if (course.audience === "external") audienceLabel = "External only";
 
                         const isAssigning = assignCourseId === course.id;
-
                         const eligibleUsers = assignableUsers;
 
                         return (
                           <tr key={course.id}>
                             <td>
-                              <div
-                                style={{
-                                  fontWeight: 600,
-                                  color: "#111827",
-                                }}
-                              >
-                                {course.title}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: "#6b7280",
-                                  marginTop: 2,
-                                }}
-                              >
-                                {course.description ||
-                                  "No description provided."}
+                              <div style={{ fontWeight: 600, color: "#111827" }}>{course.title}</div>
+                              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                                {course.description || "No description provided."}
                               </div>
                             </td>
-                            <td style={{ fontSize: 12, color: "#4b5563" }}>
-                              {audienceLabel}
-                            </td>
+                            <td style={{ fontSize: 12, color: "#4b5563" }}>{audienceLabel}</td>
                             <td>{course.totalEnrollments}</td>
                             <td>{course.internalEnrollments}</td>
                             <td>{course.externalEnrollments}</td>
@@ -813,27 +613,16 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                                   onClick={() => startAssign(course.id)}
                                   disabled={eligibleUsers.length === 0}
                                 >
-                                  {eligibleUsers.length === 0
-                                    ? "No learners"
-                                    : "Assign"}
+                                  {eligibleUsers.length === 0 ? "No learners" : "Assign"}
                                 </button>
                               ) : (
                                 <form
-                                  onSubmit={(e) =>
-                                    handleAssignSubmit(e, course.id)
-                                  }
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 6,
-                                    minWidth: 220,
-                                  }}
+                                  onSubmit={(e) => handleAssignSubmit(e, course.id)}
+                                  style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 220 }}
                                 >
                                   <select
                                     value={assignUserId}
-                                    onChange={(e) =>
-                                      setAssignUserId(e.target.value)
-                                    }
+                                    onChange={(e) => setAssignUserId(e.target.value)}
                                     required
                                     style={{
                                       padding: "6px 8px",
@@ -842,34 +631,18 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                                       fontSize: 12,
                                     }}
                                   >
-                                    <option value="">
-                                      Select a learner…
-                                    </option>
+                                    <option value="">Select a learner…</option>
                                     {eligibleUsers.map((u) => (
                                       <option key={u.id} value={u.id}>
-                                        {u.full_name || "Unnamed user"} –{" "}
-                                        {u.email || "no-email"}{" "}
-                                        {u.user_type
-                                          ? `(${u.user_type})`
-                                          : ""}
+                                        {u.full_name || "Unnamed user"} – {u.email || "no-email"}{" "}
+                                        {u.user_type ? `(${u.user_type})` : ""}
                                       </option>
                                     ))}
                                   </select>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      gap: 6,
-                                      justifyContent: "flex-start",
-                                    }}
-                                  >
-                                    <button
-                                      type="submit"
-                                      className="btn-primary"
-                                      disabled={assignLoading}
-                                    >
-                                      {assignLoading
-                                        ? "Assigning…"
-                                        : "Assign"}
+
+                                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-start" }}>
+                                    <button type="submit" className="btn-primary" disabled={assignLoading}>
+                                      {assignLoading ? "Assigning…" : "Assign"}
                                     </button>
                                     <button
                                       type="button"
@@ -897,9 +670,9 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                     marginTop: 10,
                     fontSize: 12,
                     color:
-                      assignMessage.toLowerCase().includes("error") ||
                       assignMessage.toLowerCase().includes("can’t") ||
-                      assignMessage.toLowerCase().includes("cannot")
+                      assignMessage.toLowerCase().includes("cannot") ||
+                      assignMessage.toLowerCase().includes("error")
                         ? "#b91c1c"
                         : "#047857",
                   }}
@@ -918,20 +691,11 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 <div className="block-title">Course Management</div>
               </div>
               <p className="small-block-text">
-                View and edit course details, create new courses, or remove
-                courses from Anchor Academy.
+                View and edit course details, create new courses, or remove courses from Anchor Academy.
               </p>
 
-              {/* Select course or "new" */}
               <div style={{ marginBottom: 10 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    marginBottom: 4,
-                    color: "#4b5563",
-                  }}
-                >
+                <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#4b5563" }}>
                   Select a course
                 </label>
                 <select
@@ -954,28 +718,15 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 </select>
               </div>
 
-              {/* Course form */}
-              <form
-                onSubmit={handleCourseSave}
-                style={{ display: "flex", flexDirection: "column", gap: 8 }}
-              >
+              <form onSubmit={handleCourseSave} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      marginBottom: 4,
-                      color: "#4b5563",
-                    }}
-                  >
+                  <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#4b5563" }}>
                     Title
                   </label>
                   <input
                     type="text"
                     value={courseForm.title}
-                    onChange={(e) =>
-                      handleCourseInputChange("title", e.target.value)
-                    }
+                    onChange={(e) => handleCourseInputChange("title", e.target.value)}
                     placeholder="Course title"
                     style={{
                       width: "100%",
@@ -988,22 +739,13 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 </div>
 
                 <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      marginBottom: 4,
-                      color: "#4b5563",
-                    }}
-                  >
+                  <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#4b5563" }}>
                     Slug (URL)
                   </label>
                   <input
                     type="text"
                     value={courseForm.slug}
-                    onChange={(e) =>
-                      handleCourseInputChange("slug", e.target.value)
-                    }
+                    onChange={(e) => handleCourseInputChange("slug", e.target.value)}
                     placeholder="e.g. anchorp-101"
                     style={{
                       width: "100%",
@@ -1016,21 +758,12 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 </div>
 
                 <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      marginBottom: 4,
-                      color: "#4b5563",
-                    }}
-                  >
+                  <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#4b5563" }}>
                     Description
                   </label>
                   <textarea
                     value={courseForm.description}
-                    onChange={(e) =>
-                      handleCourseInputChange("description", e.target.value)
-                    }
+                    onChange={(e) => handleCourseInputChange("description", e.target.value)}
                     placeholder="Short summary of the course."
                     rows={3}
                     style={{
@@ -1045,23 +778,13 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                 </div>
 
                 <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      marginBottom: 4,
-                      color: "#4b5563",
-                    }}
-                  >
+                  <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#4b5563" }}>
                     Audience
                   </label>
                   <select
                     value={courseForm.audience}
                     onChange={(e) =>
-                      handleCourseInputChange(
-                        "audience",
-                        e.target.value as "internal" | "external" | "both"
-                      )
+                      handleCourseInputChange("audience", e.target.value as "internal" | "external" | "both")
                     }
                     style={{
                       width: "100%",
@@ -1077,35 +800,17 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                   </select>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 6,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={savingCourse}
-                  >
-                    {savingCourse
-                      ? "Saving…"
-                      : selectedCourseId === "new"
-                      ? "Create course"
-                      : "Save changes"}
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  <button type="submit" className="btn-primary" disabled={savingCourse}>
+                    {savingCourse ? "Saving…" : selectedCourseId === "new" ? "Create course" : "Save changes"}
                   </button>
 
                   <button
                     type="button"
                     className="btn-secondary"
                     onClick={() => {
-                      if (!selectedCourseId || selectedCourseId === "new")
-                        return;
-                      router.push(
-                        `/admin/courses/${selectedCourseId}/content`
-                      );
+                      if (!selectedCourseId || selectedCourseId === "new") return;
+                      router.push(`/admin/courses/${selectedCourseId}/content`);
                     }}
                     disabled={!selectedCourseId || selectedCourseId === "new"}
                   >
@@ -1116,11 +821,7 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                     type="button"
                     className="btn-secondary"
                     onClick={handleViewAsLearner}
-                    disabled={
-                      savingCourse ||
-                      !selectedCourseId ||
-                      selectedCourseId === "new"
-                    }
+                    disabled={savingCourse || !selectedCourseId || selectedCourseId === "new"}
                   >
                     View as learner
                   </button>
@@ -1130,11 +831,7 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
                     className="btn-secondary"
                     style={{ background: "#fee2e2", color: "#b91c1c" }}
                     onClick={handleDeleteCourse}
-                    disabled={
-                      savingCourse ||
-                      !selectedCourseId ||
-                      selectedCourseId === "new"
-                    }
+                    disabled={savingCourse || !selectedCourseId || selectedCourseId === "new"}
                   >
                     Delete course
                   </button>
@@ -1142,25 +839,73 @@ const handleSuggestedClick = (action: SuggestedActionKey) => {
               </form>
 
               {courseMessage && (
-                <p
-                  style={{
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: courseMessage.toLowerCase().includes("wrong")
-                      ? "#b91c1c"
-                      : "#047857",
-                  }}
-                >
+                <p style={{ marginTop: 8, fontSize: 12, color: courseMessage.toLowerCase().includes("wrong") ? "#b91c1c" : "#047857" }}>
                   {courseMessage}
                 </p>
               )}
             </div>
 
-           
+            {/* ✅ SUGGESTED ACTIONS (now actually inside the return) */}
+            <div className="block">
+              <div className="block-header">
+                <div className="block-title">Suggested Actions</div>
+              </div>
+              <p className="small-block-text">
+                Use these quick actions to keep Anchor Academy clean and high-impact.
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    opacity: activeSuggested === "outdated" ? 1 : 0.85,
+                    fontWeight: activeSuggested === "outdated" ? 600 : 500,
+                  }}
+                  onClick={() => handleSuggestedClick("outdated")}
+                >
+                  Review outdated courses
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    opacity: activeSuggested === "popular_external" ? 1 : 0.85,
+                    fontWeight: activeSuggested === "popular_external" ? 600 : 500,
+                  }}
+                  onClick={() => handleSuggestedClick("popular_external")}
+                >
+                  Highlight popular external courses
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    opacity: activeSuggested === "low_completion" ? 1 : 0.85,
+                    fontWeight: activeSuggested === "low_completion" ? 600 : 500,
+                  }}
+                  onClick={() => handleSuggestedClick("low_completion")}
+                >
+                  Investigate low-completion courses
+                </button>
+              </div>
+
+              {activeSuggested && (
+                <p className="small-block-text" style={{ marginTop: 8, fontStyle: "italic" }}>
+                  {activeSuggested === "outdated" &&
+                    "Tip: focus on courses that haven’t been updated recently."}
+                  {activeSuggested === "popular_external" &&
+                    "Tip: look for external courses with strong enrollments or ratings."}
+                  {activeSuggested === "low_completion" &&
+                    "Tip: investigate courses where many learners start but don’t finish."}
+                </p>
+              )}
             </div>
           </div>
         </div>
       </div>
-    
+    </div>
   );
 }

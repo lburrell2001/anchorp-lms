@@ -37,6 +37,9 @@ export default function AdminPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ mobile dropdown admin sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // stats
   const [totalUsers, setTotalUsers] = useState(0);
   const [internalUsers, setInternalUsers] = useState(0);
@@ -46,21 +49,28 @@ export default function AdminPage() {
   const [totalCompletions, setTotalCompletions] = useState(0);
 
   const [users, setUsers] = useState<UserAnalytics[]>([]);
-  const [recentCompletions, setRecentCompletions] = useState<RecentCompletion[]>(
-    []
-  );
-  const [userFilter, setUserFilter] = useState<"all" | "internal" | "external">(
-    "all"
-  );
+  const [recentCompletions, setRecentCompletions] = useState<RecentCompletion[]>([]);
+  const [userFilter, setUserFilter] = useState<"all" | "internal" | "external">("all");
 
   // ---------- AUTH / ADMIN CHECK ----------
   const loadProfile = useCallback(async () => {
     setLoadingProfile(true);
+    setError(null);
+
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession();
 
+    if (sessionError) {
+      console.error(sessionError);
+      setError("Could not verify your session.");
+      setLoadingProfile(false);
+      return;
+    }
+
     if (!session?.user) {
+      setLoadingProfile(false);
       router.replace("/login");
       return;
     }
@@ -79,6 +89,7 @@ export default function AdminPage() {
     }
 
     if (data.role !== "admin") {
+      setLoadingProfile(false);
       router.replace("/dashboard");
       return;
     }
@@ -102,10 +113,7 @@ export default function AdminPage() {
         { count: enrollmentsCount },
         { count: completionsCount },
       ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true })
-          .neq("role", "admin"),
+        supabase.from("profiles").select("*", { count: "exact", head: true }).neq("role", "admin"),
         supabase
           .from("profiles")
           .select("*", { count: "exact", head: true })
@@ -117,12 +125,8 @@ export default function AdminPage() {
           .eq("user_type", "external")
           .neq("role", "admin"),
         supabase.from("courses").select("*", { count: "exact", head: true }),
-        supabase
-          .from("course_enrollments")
-          .select("*", { count: "exact", head: true }),
-        supabase
-          .from("lesson_progress")
-          .select("*", { count: "exact", head: true }),
+        supabase.from("course_enrollments").select("*", { count: "exact", head: true }),
+        supabase.from("lesson_progress").select("*", { count: "exact", head: true }),
       ]);
 
       setTotalUsers(usersCount || 0);
@@ -208,34 +212,25 @@ export default function AdminPage() {
   }, [loadProfile]);
 
   useEffect(() => {
-    if (adminProfile?.role === "admin") {
-      loadAnalytics();
-    }
+    if (adminProfile?.role === "admin") loadAnalytics();
   }, [adminProfile, loadAnalytics]);
 
   // ---------- RENDER ----------
-
   if (loadingProfile) {
     return <div style={{ padding: 24 }}>Loading admin dashboard…</div>;
   }
 
   if (error) {
-    return (
-      <div style={{ padding: 24, color: "red", fontWeight: 500 }}>{error}</div>
-    );
+    return <div style={{ padding: 24, color: "red", fontWeight: 500 }}>{error}</div>;
   }
 
   if (!adminProfile) return null;
 
   const filteredUsers =
-    userFilter === "all"
-      ? users
-      : users.filter((u) => u.user_type === userFilter);
+    userFilter === "all" ? users : users.filter((u) => u.user_type === userFilter);
 
-  const internalPercent =
-    totalUsers === 0 ? 0 : Math.round((internalUsers / totalUsers) * 100);
-  const externalPercent =
-    totalUsers === 0 ? 0 : Math.round((externalUsers / totalUsers) * 100);
+  const internalPercent = totalUsers === 0 ? 0 : Math.round((internalUsers / totalUsers) * 100);
+  const externalPercent = totalUsers === 0 ? 0 : Math.round((externalUsers / totalUsers) * 100);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -245,24 +240,47 @@ export default function AdminPage() {
   });
 
   return (
-    <div className="dashboard-root">
-      {/* ADMIN SIDEBAR */}
+    <div className="dashboard-root admin-root">
+      {/* ✅ ADMIN SIDEBAR DROPDOWN WRAPPER */}
       <AdminSidebar
-        active="overview"   
+        active="overview"
         fullName={adminProfile.full_name}
         email={adminProfile.email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
       />
+
+      {/* ✅ OVERLAY (tap to close) */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       {/* MAIN CONTENT */}
       <div className="main">
         {/* TOPBAR */}
         <div className="topbar">
-          <div>
+          {/* ✅ HAMBURGER (mobile only via CSS) */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
+          <div style={{ flex: 1 }}>
             <div className="topbar-title">Admin Activity Dashboard</div>
             <div className="topbar-subtitle">
               Track internal &amp; external learners, course usage, and progress.
             </div>
           </div>
+
           <div style={{ textAlign: "right", fontSize: 12 }}>
             <div>{today}</div>
             <div>Logged in as {adminProfile.email}</div>
@@ -281,23 +299,17 @@ export default function AdminPage() {
           <div className="stat-card">
             <div className="stat-label">Courses Live</div>
             <div className="stat-value">{totalCourses}</div>
-            <div className="small-block-text">
-              {totalEnrollments} total enrollments
-            </div>
+            <div className="small-block-text">{totalEnrollments} total enrollments</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Lesson Completions</div>
             <div className="stat-value">{totalCompletions}</div>
-            <div className="small-block-text">
-              All-time completions (excluding admin).
-            </div>
+            <div className="small-block-text">All-time completions (excluding admin).</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">External Share</div>
             <div className="stat-value">{externalPercent}%</div>
-            <div className="small-block-text">
-              Of all users are potential customers.
-            </div>
+            <div className="small-block-text">Of all users are potential customers.</div>
           </div>
         </div>
 
@@ -310,8 +322,7 @@ export default function AdminPage() {
                 <div className="block-title">Recent Learning Activity</div>
               </div>
               <p className="small-block-text">
-                Last 25 lesson completions across internal and external users
-                (admin excluded).
+                Last 25 lesson completions across internal and external users (admin excluded).
               </p>
 
               {recentCompletions.length === 0 ? (
@@ -331,14 +342,8 @@ export default function AdminPage() {
                                 textTransform: "capitalize",
                                 padding: "2px 8px",
                                 borderRadius: 999,
-                                background:
-                                  rc.user_type === "internal"
-                                    ? "#e0f2fe"
-                                    : "#fef3c7",
-                                color:
-                                  rc.user_type === "internal"
-                                    ? "#0369a1"
-                                    : "#92400e",
+                                background: rc.user_type === "internal" ? "#e0f2fe" : "#fef3c7",
+                                color: rc.user_type === "internal" ? "#0369a1" : "#92400e",
                               }}
                             >
                               {rc.user_type}
@@ -371,9 +376,7 @@ export default function AdminPage() {
               <div className="block-header">
                 <div className="block-title">Internal vs External</div>
               </div>
-              <p className="small-block-text">
-                Percentage of non-admin users by type.
-              </p>
+              <p className="small-block-text">Percentage of non-admin users by type.</p>
 
               <div className="progress-track" style={{ marginBottom: 8 }}>
                 <div
@@ -413,9 +416,7 @@ export default function AdminPage() {
                     type="button"
                     className="btn-secondary"
                     style={
-                      userFilter === "all"
-                        ? {}
-                        : { background: "#e5e7eb", color: "#374151" }
+                      userFilter === "all" ? {} : { background: "#e5e7eb", color: "#374151" }
                     }
                     onClick={() => setUserFilter("all")}
                   >
@@ -425,9 +426,7 @@ export default function AdminPage() {
                     type="button"
                     className="btn-secondary"
                     style={
-                      userFilter === "internal"
-                        ? {}
-                        : { background: "#e5e7eb", color: "#374151" }
+                      userFilter === "internal" ? {} : { background: "#e5e7eb", color: "#374151" }
                     }
                     onClick={() => setUserFilter("internal")}
                   >
@@ -437,9 +436,7 @@ export default function AdminPage() {
                     type="button"
                     className="btn-secondary"
                     style={
-                      userFilter === "external"
-                        ? {}
-                        : { background: "#e5e7eb", color: "#374151" }
+                      userFilter === "external" ? {} : { background: "#e5e7eb", color: "#374151" }
                     }
                     onClick={() => setUserFilter("external")}
                   >
@@ -452,60 +449,21 @@ export default function AdminPage() {
                 <p className="small-block-text">Loading user progress…</p>
               ) : (
                 <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: 13,
-                    }}
-                  >
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          User
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          Email
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          Type
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          Courses
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          Lessons
-                        </th>
+                        {["User", "Email", "Type", "Courses", "Lessons"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              borderBottom: "1px solid #e5e7eb",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -513,11 +471,7 @@ export default function AdminPage() {
                         <tr>
                           <td
                             colSpan={5}
-                            style={{
-                              textAlign: "center",
-                              padding: "10px 0",
-                              color: "#9ca3af",
-                            }}
+                            style={{ textAlign: "center", padding: "10px 0", color: "#9ca3af" }}
                           >
                             No users for this filter.
                           </td>
@@ -525,44 +479,19 @@ export default function AdminPage() {
                       ) : (
                         filteredUsers.map((u) => (
                           <tr key={u.id}>
-                            <td
-                              style={{
-                                padding: "8px 10px",
-                                borderBottom: "1px solid #e5e7eb",
-                              }}
-                            >
+                            <td style={{ padding: "8px 10px", borderBottom: "1px solid #e5e7eb" }}>
                               {u.full_name || "Unnamed user"}
                             </td>
-                            <td
-                              style={{
-                                padding: "8px 10px",
-                                borderBottom: "1px solid #e5e7eb",
-                              }}
-                            >
+                            <td style={{ padding: "8px 10px", borderBottom: "1px solid #e5e7eb" }}>
                               {u.email}
                             </td>
-                            <td
-                              style={{
-                                padding: "8px 10px",
-                                borderBottom: "1px solid #e5e7eb",
-                              }}
-                            >
+                            <td style={{ padding: "8px 10px", borderBottom: "1px solid #e5e7eb" }}>
                               {u.user_type || "—"}
                             </td>
-                            <td
-                              style={{
-                                padding: "8px 10px",
-                                borderBottom: "1px solid #e5e7eb",
-                              }}
-                            >
+                            <td style={{ padding: "8px 10px", borderBottom: "1px solid #e5e7eb" }}>
                               {u.courses_enrolled}
                             </td>
-                            <td
-                              style={{
-                                padding: "8px 10px",
-                                borderBottom: "1px solid #e5e7eb",
-                              }}
-                            >
+                            <td style={{ padding: "8px 10px", borderBottom: "1px solid #e5e7eb" }}>
                               {u.lessons_completed}
                             </td>
                           </tr>

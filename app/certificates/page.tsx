@@ -33,6 +33,9 @@ export default function CertificatesPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -126,7 +129,7 @@ export default function CertificatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]); // ✅ include router
+  }, [router]);
 
   useEffect(() => {
     loadData();
@@ -137,10 +140,38 @@ export default function CertificatesPage() {
 
   return (
     <div className="dashboard-root">
-      <AppSidebar active="certificates" fullName={fullName} email={email} />
+      {/* ✅ SIDEBAR DROPDOWN WRAPPER */}
+      <AppSidebar
+        active="certificates"
+        fullName={fullName}
+        email={email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
+      />
 
+      {/* ✅ OVERLAY (tap closes) */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
+
+      {/* MAIN */}
       <main className="main">
         <div className="topbar">
+          {/* ✅ HAMBURGER */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">Certificates</div>
             <div className="topbar-subtitle">

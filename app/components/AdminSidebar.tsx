@@ -9,8 +9,8 @@ type AdminSidebarProps = {
   email: string | null;
 
   // mobile dropdown support
-  isOpen?: boolean;        // ✅ controls slide-down wrapper
-  onNavClick?: () => void; // ✅ closes menu (optional)
+  isOpen?: boolean;
+  onNavClick?: () => void;
 };
 
 function getInitials(name: string | null | undefined) {
@@ -41,60 +41,48 @@ export default function AdminSidebar({
   const closeMenu = () => onNavClick?.();
 
   const go = (path: string) => {
-    closeMenu();          // ✅ close first (prevents overlay/tap weirdness)
+    closeMenu();
     router.push(path);
   };
 
   const hardLogout = async () => {
-  try {
-    // 1) Try normal sign out
-    await supabase.auth.signOut({ scope: "global" });
-  } catch (e) {
-    console.error("signOut error:", e);
-  }
+    // ✅ close menu immediately so overlay can’t block taps
+    closeMenu();
 
-  // 2) Nuke any persisted Supabase auth tokens (mobile Safari can keep them around)
-  try {
-    if (typeof window !== "undefined") {
-      const ls = window.localStorage;
-      const ss = window.sessionStorage;
-
-      // remove sb-<project-ref>-auth-token keys
-      for (let i = ls.length - 1; i >= 0; i--) {
-        const k = ls.key(i);
-        if (!k) continue;
-        if (k.startsWith("sb-") && k.endsWith("-auth-token")) ls.removeItem(k);
-      }
-
-      for (let i = ss.length - 1; i >= 0; i--) {
-        const k = ss.key(i);
-        if (!k) continue;
-        if (k.startsWith("sb-") && k.endsWith("-auth-token")) ss.removeItem(k);
-      }
-    }
-  } catch (e) {
-    console.error("storage clear error:", e);
-  }
-
-  // 3) Force a fresh page load (cache-bust to prevent back/forward weirdness)
-  window.location.replace(`/login?logout=1&t=${Date.now()}`);
-
+    // 1) Try normal sign out (global clears other devices too)
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) console.error("Error signing out:", error.message);
-    } catch (err) {
-      console.error("Unexpected error signing out:", err);
-    } finally {
-      // ✅ more reliable than setting href (esp. on mobile)
-      window.location.assign("/login");
+      await supabase.auth.signOut({ scope: "global" });
+    } catch (e) {
+      console.error("signOut error:", e);
     }
+
+    // 2) Remove persisted auth tokens (helps on mobile)
+    try {
+      if (typeof window !== "undefined") {
+        const ls = window.localStorage;
+        const ss = window.sessionStorage;
+
+        for (let i = ls.length - 1; i >= 0; i--) {
+          const k = ls.key(i);
+          if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) ls.removeItem(k);
+        }
+        for (let i = ss.length - 1; i >= 0; i--) {
+          const k = ss.key(i);
+          if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) ss.removeItem(k);
+        }
+      }
+    } catch (e) {
+      console.error("storage clear error:", e);
+    }
+
+    // 3) Hard redirect (cache bust prevents “flash back in”)
+    window.location.replace(`/login?logout=1&t=${Date.now()}`);
   };
 
   return (
-    // ✅ wrapper matches your mobile CSS approach (like .app-sidebar)
     <div className={`admin-sidebar ${isOpen ? "admin-sidebar-open" : ""}`}>
       <aside className="sidebar">
-        {/* Close button (mobile only) */}
+        {/* ✕ Close button (mobile only) */}
         <button
           type="button"
           className="sidebar-close-button"
@@ -146,13 +134,12 @@ export default function AdminSidebar({
         </nav>
 
         {/* Logout */}
-<div className="sidebar-footer" style={{ marginTop: "auto" }}>
-  <div className="sidebar-footer-title">Account</div>
-  <button type="button" className="nav-item" onClick={hardLogout}>
-    Log out
-  </button>
-</div>
-
+        <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+          <div className="sidebar-footer-title">Account</div>
+          <button type="button" className="nav-item" onClick={hardLogout}>
+            Log out
+          </button>
+        </div>
       </aside>
     </div>
   );

@@ -9,14 +9,18 @@ type SidebarKey =
   | "all-courses"
   | "certificates"
   | "reports"
-  | "settings";
+  | "settings"
+  | "lessons";
 
 type SidebarProps = {
   active: SidebarKey;
   fullName: string | null;
   email: string | null;
   locale?: "en" | "es";
-  onNavClick?: () => void; // 🔹 NEW: called whenever a nav item is clicked
+
+  // ✅ mobile dropdown support
+  isOpen?: boolean;
+  onNavClick?: () => void; // should setSidebarOpen(false)
 };
 
 function getInitials(name: string | null | undefined) {
@@ -33,6 +37,7 @@ export default function AppSidebar({
   active,
   fullName,
   email,
+  isOpen = false,
   onNavClick,
 }: SidebarProps) {
   const router = useRouter();
@@ -41,7 +46,7 @@ export default function AppSidebar({
   const displayEmail = email || "";
   const initials = getInitials(fullName);
 
-  const navItems = [
+  const navItems: { key: SidebarKey; label: string; href: string }[] = [
     { key: "dashboard", label: "Dashboard", href: "/dashboard" },
     { key: "my-courses", label: "My Courses", href: "/my-courses" },
     { key: "all-courses", label: "All Courses", href: "/courses" },
@@ -52,12 +57,15 @@ export default function AppSidebar({
   const itemClass = (key: SidebarKey) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
-  const handleNavClick = (href: string) => {
+  const closeMenu = () => onNavClick?.();
+
+  const go = (href: string) => {
+    closeMenu();            // ✅ close first
     router.push(href);
-    onNavClick?.();
   };
 
   const handleLogout = async () => {
+    closeMenu();            // ✅ close first so overlay never blocks taps
     try {
       await supabase.auth.signOut();
     } finally {
@@ -66,19 +74,23 @@ export default function AppSidebar({
   };
 
   return (
-    <div className="app-sidebar app-sidebar-open">
+    // ✅ wrapper that your CSS animates
+    <div className={`app-sidebar ${isOpen ? "app-sidebar-open" : ""}`}>
       <aside className="sidebar">
-        {/* ✕ Close button */}
+        {/* ✅ X close button */}
         <button
           type="button"
           className="sidebar-close-button"
-          onClick={() => onNavClick?.()}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeMenu();
+          }}
           aria-label="Close menu"
         >
           ✕
         </button>
 
-        {/* Profile */}
         <div className="sidebar-profile">
           <div className="avatar-circle">{initials}</div>
           <div>
@@ -87,25 +99,23 @@ export default function AppSidebar({
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="sidebar-nav">
           {navItems.map((item) => (
             <button
               key={item.key}
               type="button"
               className={itemClass(item.key)}
-              onClick={() => handleNavClick(item.href)}
+              onClick={() => go(item.href)}
             >
               {item.label}
             </button>
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="sidebar-footer" style={{ marginTop: "auto" }}>
           <div className="sidebar-footer-title">Account</div>
           <button type="button" className="nav-item" onClick={handleLogout}>
-            Log Out
+            Log out
           </button>
         </div>
       </aside>
