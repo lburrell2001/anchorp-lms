@@ -11,17 +11,15 @@ type Profile = {
 
 type UserType = "internal" | "external";
 
-/**
- * Inner signup component that actually uses hooks like useSearchParams.
- * This MUST be wrapped in <Suspense> in the default export.
- */
 function SignupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [fullName, setFullName] = useState("");
+  const [aiaNumber, setAiaNumber] = useState(""); // ✅ optional
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +42,8 @@ function SignupPageInner() {
         .eq("id", session.user.id)
         .single();
 
-      if (profile?.role === "admin") {
-        router.replace("/admin");
-      } else {
-        router.replace("/dashboard");
-      }
+      if (profile?.role === "admin") router.replace("/admin");
+      else router.replace("/dashboard");
     };
 
     checkSession();
@@ -60,21 +55,31 @@ function SignupPageInner() {
     setMessage(null);
     setLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ✅ Rule: @anchorp.com always = internal
+    const effectiveUserType: UserType = normalizedEmail.endsWith("@anchorp.com")
+      ? "internal"
+      : userTypeParam;
+
+    const aiaToSave = aiaNumber.trim() || null; // ✅ optional
+
     // 1) create auth user with metadata
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         data: {
           full_name: fullName,
-          user_type: userTypeParam,
+          user_type: effectiveUserType, // ✅ enforced
           role: roleParam ?? null,
+          aia_number: aiaToSave, // ✅ NEW (metadata)
         },
       },
     });
 
-    if (error) {
-      setError(error.message);
+    if (signUpError) {
+      setError(signUpError.message);
       setLoading(false);
       return;
     }
@@ -83,16 +88,23 @@ function SignupPageInner() {
 
     // 2) upsert into profiles (in case you don’t already have a trigger)
     if (sessionUser) {
-      await supabase.from("profiles").upsert(
+      const { error: upsertError } = await supabase.from("profiles").upsert(
         {
           id: sessionUser.id,
           full_name: fullName,
           email: sessionUser.email,
-          user_type: userTypeParam,
+          user_type: effectiveUserType, // ✅ enforced
           role: roleParam ?? null,
+          aia_number: aiaToSave, // ✅ NEW (profiles column)
         },
         { onConflict: "id" }
       );
+
+      if (upsertError) {
+        setError(upsertError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     // 3) If there is an active session, redirect now by role
@@ -103,11 +115,8 @@ function SignupPageInner() {
         .eq("id", data.user.id)
         .single();
 
-      if (profile?.role === "admin") {
-        router.replace("/admin");
-      } else {
-        router.replace("/dashboard");
-      }
+      if (profile?.role === "admin") router.replace("/admin");
+      else router.replace("/dashboard");
     } else {
       // email confirmation / magic-link flow
       setMessage(
@@ -118,6 +127,12 @@ function SignupPageInner() {
     setLoading(false);
   };
 
+  // purely UI copy (shows what they’re signing up as)
+  const displayType =
+    email.trim().toLowerCase().endsWith("@anchorp.com")
+      ? "internal"
+      : userTypeParam;
+
   return (
     <div className="auth-background login-page">
       <div className="login-card">
@@ -126,7 +141,7 @@ function SignupPageInner() {
         <p style={{ fontSize: 13, marginBottom: 16, color: "#4b5563" }}>
           You’re signing up as{" "}
           <strong>
-            {userTypeParam === "internal"
+            {displayType === "internal"
               ? "Internal Employee"
               : "External Customer"}
           </strong>
@@ -152,6 +167,16 @@ function SignupPageInner() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
+          />
+
+          <label htmlFor="aia-number">AIA number (optional)</label>
+          <input
+            id="aia-number"
+            type="text"
+            value={aiaNumber}
+            onChange={(e) => setAiaNumber(e.target.value)}
+            placeholder="e.g. 12345678"
+            autoComplete="off"
           />
 
           <label htmlFor="email">Email</label>
@@ -180,20 +205,13 @@ function SignupPageInner() {
         </form>
 
         <div className="login-extra">
-          Already have an account?{" "}
-          <a href="/login">
-            Log in
-          </a>
+          Already have an account? <a href="/login">Log in</a>
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * Default export: wraps inner signup page in Suspense.
- * This fixes the "useSearchParams should be wrapped in a suspense boundary" error.
- */
 export default function SignupPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
