@@ -34,6 +34,9 @@ export default function MyCoursesPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -43,6 +46,7 @@ export default function MyCoursesPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
       if (userError) throw userError;
       if (!user) throw new Error("You must be signed in to view your courses.");
 
@@ -64,10 +68,11 @@ export default function MyCoursesPage() {
           email.split("@")[0] ||
           "Learner";
 
-        const defaultType: "internal" | "external" =
-          email.toLowerCase().endsWith("@anchorp.com")
-            ? "internal"
-            : "external";
+        const defaultType: "internal" | "external" = email
+          .toLowerCase()
+          .endsWith("@anchorp.com")
+          ? "internal"
+          : "external";
 
         const { data: inserted, error: insertError } = await supabase
           .from("profiles")
@@ -109,14 +114,10 @@ export default function MyCoursesPage() {
 
       let rows = (enrollmentRows || []) as EnrollmentWithCourse[];
 
-      // 🔒 Extra safety: external users never see internal-only courses,
-      // even if they somehow got enrolled.
+      // 🔒 Extra safety: external users never see internal-only courses
       const isInternalUser = profileRow.user_type === "internal";
       if (!isInternalUser) {
-        rows = rows.filter(
-          (row) =>
-            !row.courses || row.courses.audience !== "internal"
-        );
+        rows = rows.filter((row) => !row.courses || row.courses.audience !== "internal");
       }
 
       setItems(rows);
@@ -136,38 +137,65 @@ export default function MyCoursesPage() {
   const email = profile?.email ?? null;
 
   const handleUnenroll = async (courseId: string) => {
-  try {
-    setError(null);
+    try {
+      setError(null);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    if (!user) throw new Error("You must be signed in.");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    const { error: deleteError } = await supabase
-      .from("course_enrollments")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("course_id", courseId);
+      if (userError) throw userError;
+      if (!user) throw new Error("You must be signed in.");
 
-    if (deleteError) throw deleteError;
+      const { error: deleteError } = await supabase
+        .from("course_enrollments")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("course_id", courseId);
 
-    setItems((prev) => prev.filter((row) => row.course_id !== courseId));
-  } catch (e: any) {
-    console.error("Error unenrolling:", e);
-    setError(e.message ?? "Failed to unenroll.");
-  }
-};
+      if (deleteError) throw deleteError;
 
+      setItems((prev) => prev.filter((row) => row.course_id !== courseId));
+    } catch (e: any) {
+      console.error("Error unenrolling:", e);
+      setError(e.message ?? "Failed to unenroll.");
+    }
+  };
 
   return (
     <div className="dashboard-root">
-      <AppSidebar active="my-courses" fullName={fullName} email={email} />
+      {/* ✅ SIDEBAR (mobile dropdown enabled) */}
+      <AppSidebar
+        active="my-courses"
+        fullName={fullName}
+        email={email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ✅ OVERLAY */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       <main className="main">
         <div className="topbar">
+          {/* ✅ HAMBURGER */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">My courses</div>
             <div className="topbar-subtitle">
@@ -180,13 +208,7 @@ export default function MyCoursesPage() {
           {loading && <p>Loading your courses...</p>}
 
           {error && (
-            <p
-              style={{
-                marginBottom: 12,
-                fontSize: "0.8rem",
-                color: "#b91c1c",
-              }}
-            >
+            <p style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}>
               {error}
             </p>
           )}
@@ -237,53 +259,34 @@ export default function MyCoursesPage() {
                     }}
                   >
                     <div>
-                      <div
-                        style={{
-                          fontSize: "0.95rem",
-                          fontWeight: 600,
-                          color: "#111827",
-                        }}
-                      >
+                      <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111827" }}>
                         {course.title}
                       </div>
-                      <div
-                        style={{
-                          marginTop: 4,
-                          fontSize: "0.8rem",
-                          color: "#4b5563",
-                        }}
-                      >
+                      <div style={{ marginTop: 4, fontSize: "0.8rem", color: "#4b5563" }}>
                         {course.description || "No description provided yet."}
                       </div>
-                      <div
-                        style={{
-                          marginTop: 4,
-                          fontSize: "0.75rem",
-                          color: "#6b7280",
-                        }}
-                      >
+                      <div style={{ marginTop: 4, fontSize: "0.75rem", color: "#6b7280" }}>
                         Audience: {audienceLabel}
                       </div>
                     </div>
 
                     <div style={{ display: "flex", gap: 8 }}>
-  <button
-    type="button"
-    className="btn-primary"
-    onClick={() => router.push(`/courses/${course.slug}`)}
-  >
-    Continue course
-  </button>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => router.push(`/courses/${course.slug}`)}
+                      >
+                        Continue course
+                      </button>
 
-  <button
-    type="button"
-    className="btn-secondary"
-    onClick={() => handleUnenroll(course.id)}
-  >
-    Unenroll
-  </button>
-</div>
-
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => handleUnenroll(course.id)}
+                      >
+                        Unenroll
+                      </button>
+                    </div>
                   </div>
                 );
               })}

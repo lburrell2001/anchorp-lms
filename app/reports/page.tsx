@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
-import AppSidebar from "../components/AppSidebar"; // ⬅️ shared sidebar
+import AppSidebar from "../components/AppSidebar";
 
 type Course = {
   id: string;
@@ -35,20 +35,23 @@ export default function ReportsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ MOBILE SIDEBAR STATE
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Basic access check (must be signed in)
       const {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
       if (userError) throw userError;
       if (!user) throw new Error("You must be signed in to view reports.");
 
-      // ---------- PROFILE FOR SIDEBAR ----------
+      // PROFILE
       const { data: existingProfile, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email, user_type")
@@ -66,10 +69,11 @@ export default function ReportsPage() {
           email.split("@")[0] ||
           "Learner";
 
-        const defaultType: "internal" | "external" =
-          email.toLowerCase().endsWith("@anchorp.com")
-            ? "internal"
-            : "external";
+        const defaultType: "internal" | "external" = email
+          .toLowerCase()
+          .endsWith("@anchorp.com")
+          ? "internal"
+          : "external";
 
         const { data: inserted, error: insertError } = await supabase
           .from("profiles")
@@ -88,8 +92,6 @@ export default function ReportsPage() {
       }
 
       setProfile(profileRow);
-
-      // ---------- ORIGINAL REPORTS QUERIES (UNCHANGED) ----------
 
       // Courses
       const { data: courseRows, error: courseError } = await supabase
@@ -134,11 +136,8 @@ export default function ReportsPage() {
   const totalAttempts = attempts.length;
   const totalPassed = attempts.filter((a) => a.passed).length;
   const passRate =
-    totalAttempts === 0
-      ? 0
-      : Math.round((totalPassed / totalAttempts) * 100);
+    totalAttempts === 0 ? 0 : Math.round((totalPassed / totalAttempts) * 100);
 
-  // Enrollment count per course
   const enrollCountByCourse = courses.map((c) => {
     const count = enrollments.filter((e) => e.course_id === c.id).length;
     return { ...c, enrollmentCount: count };
@@ -149,12 +148,38 @@ export default function ReportsPage() {
 
   return (
     <div className="dashboard-root">
-      {/* SHARED SIDEBAR WITH REAL USER INFO */}
-      <AppSidebar active="reports" fullName={fullName} email={email} />
+      {/* ✅ Sidebar */}
+      <AppSidebar
+        active="reports"
+        fullName={fullName}
+        email={email}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ✅ Overlay */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       {/* MAIN */}
       <main className="main">
         <div className="topbar">
+          {/* ✅ Hamburger (mobile) */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">Reports</div>
             <div className="topbar-subtitle">
@@ -167,16 +192,13 @@ export default function ReportsPage() {
           {loading && <p>Loading reports...</p>}
 
           {error && (
-            <p
-              style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}
-            >
+            <p style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}>
               {error}
             </p>
           )}
 
           {!loading && !error && (
             <>
-              {/* Summary cards */}
               <div
                 style={{
                   display: "grid",
@@ -206,7 +228,6 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              {/* Per-course enrollments */}
               <div
                 style={{
                   marginTop: 8,
@@ -217,17 +238,16 @@ export default function ReportsPage() {
               >
                 Enrollment by course
               </div>
+
               <p className="small-block-text" style={{ marginBottom: 8 }}>
                 Quick snapshot of how many learners are in each course.
               </p>
 
               {enrollCountByCourse.length === 0 ? (
-                <p className="small-block-text">
-                  No courses or enrollments yet.
-                </p>
+                <p className="small-block-text">No courses or enrollments yet.</p>
               ) : (
                 <div style={{ marginTop: 8 }}>
-                  {enrollCountByCourse.map((c) => (
+                  {enrollCountByCourse.map((c: any) => (
                     <div
                       key={c.id}
                       style={{
@@ -247,12 +267,7 @@ export default function ReportsPage() {
                       >
                         {c.title}
                       </div>
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#4b5563",
-                        }}
-                      >
+                      <div style={{ fontSize: "0.8rem", color: "#4b5563" }}>
                         {c.enrollmentCount} enrollment
                         {c.enrollmentCount === 1 ? "" : "s"}
                       </div>

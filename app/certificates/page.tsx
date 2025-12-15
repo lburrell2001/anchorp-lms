@@ -38,21 +38,21 @@ export default function CertificatesPage() {
     setError(null);
 
     try {
+      // ✅ Use session as the single source of truth
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!user) throw new Error("You must be signed in to view certificates.");
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      const {
-  data: { session },
-} = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-if (!session) {
-  router.replace("/login");
-  return;
-}
+      if (!session?.user) {
+        setLoading(false);
+        router.replace("/login");
+        return;
+      }
+
+      const user = session.user;
 
       // ---------- PROFILE (for sidebar) ----------
       const { data: existingProfile, error: profileError } = await supabase
@@ -72,10 +72,11 @@ if (!session) {
           email.split("@")[0] ||
           "Learner";
 
-        const defaultType: "internal" | "external" =
-          email.toLowerCase().endsWith("@anchorp.com")
-            ? "internal"
-            : "external";
+        const defaultType: "internal" | "external" = email
+          .toLowerCase()
+          .endsWith("@anchorp.com")
+          ? "internal"
+          : "external";
 
         const { data: inserted, error: insertError } = await supabase
           .from("profiles")
@@ -120,11 +121,12 @@ if (!session) {
       setCerts((data || []) as CertificateRow[]);
     } catch (e: any) {
       console.error("Error loading certificates:", e);
-      setError(e.message ?? "Failed to load certificates.");
+      setError(e?.message ?? "Failed to load certificates.");
+      setCerts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]); // ✅ include router
 
   useEffect(() => {
     loadData();
@@ -135,10 +137,8 @@ if (!session) {
 
   return (
     <div className="dashboard-root">
-      {/* SHARED SIDEBAR WITH REAL USER INFO */}
       <AppSidebar active="certificates" fullName={fullName} email={email} />
 
-      {/* MAIN */}
       <main className="main">
         <div className="topbar">
           <div>
@@ -153,13 +153,7 @@ if (!session) {
           {loading && <p>Loading certificates...</p>}
 
           {error && (
-            <p
-              style={{
-                marginBottom: 12,
-                fontSize: "0.8rem",
-                color: "#b91c1c",
-              }}
-            >
+            <p style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}>
               {error}
             </p>
           )}
@@ -189,53 +183,26 @@ if (!session) {
                   }}
                 >
                   <div>
-                    <div
-                      style={{
-                        fontSize: "0.95rem",
-                        fontWeight: 600,
-                        color: "#111827",
-                      }}
-                    >
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111827" }}>
                       {course?.title || "Unknown course"}
                     </div>
 
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: "0.8rem",
-                        color: "#4b5563",
-                      }}
-                    >
+                    <div style={{ marginTop: 4, fontSize: "0.8rem", color: "#4b5563" }}>
                       Issued on {issuedDate}
-                      {row.certificate_number && (
-                        <> · Certificate #{row.certificate_number}</>
-                      )}
+                      {row.certificate_number && <> · Certificate #{row.certificate_number}</>}
                     </div>
 
                     {row.completed_at && (
-                      <div
-                        style={{
-                          marginTop: 2,
-                          fontSize: "0.75rem",
-                          color: "#6b7280",
-                        }}
-                      >
-                        Course completed on{" "}
-                        {new Date(row.completed_at).toLocaleDateString()}
+                      <div style={{ marginTop: 2, fontSize: "0.75rem", color: "#6b7280" }}>
+                        Course completed on {new Date(row.completed_at).toLocaleDateString()}
                       </div>
                     )}
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
                     {course?.slug && (
                       <button
+                        type="button"
                         onClick={() => router.push(`/courses/${course.slug}`)}
                         style={{
                           padding: "6px 10px",
@@ -272,12 +239,7 @@ if (!session) {
                         View / Download
                       </a>
                     ) : (
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#9ca3af",
-                        }}
-                      >
+                      <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
                         No file attached yet
                       </span>
                     )}

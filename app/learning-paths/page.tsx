@@ -20,6 +20,8 @@ export default function LearningPathPage() {
   const [hasLessonProgress, setHasLessonProgress] = useState(false);
   const [hasCertificate, setHasCertificate] = useState(false);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -29,6 +31,7 @@ export default function LearningPathPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
       if (userError) throw userError;
       if (!user) throw new Error("You must be signed in to view the learning path.");
 
@@ -50,10 +53,11 @@ export default function LearningPathPage() {
           email.split("@")[0] ||
           "Learner";
 
-        const defaultType: "internal" | "external" =
-          email.toLowerCase().endsWith("@anchorp.com")
-            ? "internal"
-            : "external";
+        const defaultType: "internal" | "external" = email
+          .toLowerCase()
+          .endsWith("@anchorp.com")
+          ? "internal"
+          : "external";
 
         const { data: inserted, error: insertError } = await supabase
           .from("profiles")
@@ -72,8 +76,6 @@ export default function LearningPathPage() {
 
       setProfile(profileRow);
 
-      // ---- STEP DATA ----
-
       // Step 1 – any enrollments?
       const { data: enrollRows, error: enrollError } = await supabase
         .from("course_enrollments")
@@ -81,8 +83,7 @@ export default function LearningPathPage() {
         .eq("user_id", user.id);
 
       if (enrollError) throw enrollError;
-      const hasEnroll = (enrollRows || []).length > 0;
-      setHasEnrollment(hasEnroll);
+      setHasEnrollment((enrollRows || []).length > 0);
 
       // Step 2 – any completed lessons?
       const { data: lpRows, error: lpError } = await supabase
@@ -91,10 +92,7 @@ export default function LearningPathPage() {
         .eq("user_id", user.id);
 
       if (lpError) throw lpError;
-      const hasLessonsDone = (lpRows || []).some(
-        (row: any) => row.completed_at != null
-      );
-      setHasLessonProgress(hasLessonsDone);
+      setHasLessonProgress((lpRows || []).some((row: any) => row.completed_at != null));
 
       // Step 3 – any certificates?
       const { data: certRows, error: certError } = await supabase
@@ -103,8 +101,7 @@ export default function LearningPathPage() {
         .eq("user_id", user.id);
 
       if (certError) throw certError;
-      const hasCert = (certRows || []).length > 0;
-      setHasCertificate(hasCert);
+      setHasCertificate((certRows || []).length > 0);
     } catch (e: any) {
       console.error("Error loading learning path:", e);
       setError(e.message ?? "Failed to load learning path.");
@@ -117,9 +114,6 @@ export default function LearningPathPage() {
     loadData();
   }, [loadData]);
 
-  const fullName = profile?.full_name ?? null;
-  const email = profile?.email ?? null;
-
   const stepsCompleted =
     (hasEnrollment ? 1 : 0) +
     (hasLessonProgress ? 1 : 0) +
@@ -131,16 +125,38 @@ export default function LearningPathPage() {
 
   return (
     <div className="dashboard-root">
-      {/* SHARED SIDEBAR */}
+      {/* ✅ SIDEBAR */}
       <AppSidebar
-        active="dashboard" // still no dedicated nav item
-        fullName={fullName}
-        email={email}
+        active="dashboard"
+        fullName={profile?.full_name ?? null}
+        email={profile?.email ?? null}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
       />
+
+      {/* ✅ OVERLAY */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
 
       {/* MAIN */}
       <main className="main">
         <div className="topbar">
+          {/* ✅ HAMBURGER */}
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+
           <div>
             <div className="topbar-title">Learning path</div>
             <div className="topbar-subtitle">
@@ -153,20 +169,13 @@ export default function LearningPathPage() {
           {loading && <p>Loading learning path…</p>}
 
           {error && (
-            <p
-              style={{
-                marginBottom: 12,
-                fontSize: "0.8rem",
-                color: "#b91c1c",
-              }}
-            >
+            <p style={{ marginBottom: 12, fontSize: "0.8rem", color: "#b91c1c" }}>
               {error}
             </p>
           )}
 
           {!loading && !error && (
             <>
-              {/* Header row */}
               <div className="map-header-row">
                 <div>
                   <div className="map-label">LEARNING PATH</div>
@@ -192,128 +201,70 @@ export default function LearningPathPage() {
                 </div>
               </div>
 
-              {/* Steps */}
               <div className="map-steps" style={{ marginTop: 16 }}>
                 {/* STEP 1 */}
-                <div
-                  className={
-                    "map-step lp-step" +
-                    (hasEnrollment ? " map-step-active" : "")
-                  }
-                >
+                <div className={"map-step lp-step" + (hasEnrollment ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div>
                     <div className="lp-step-header">
                       <span className="map-step-title">Step 1</span>
-                      <span
-                        className={
-                          "lp-step-pill " +
-                          (hasEnrollment
-                            ? "lp-pill-completed"
-                            : "lp-pill-not-started")
-                        }
-                      >
+                      <span className={"lp-step-pill " + (hasEnrollment ? "lp-pill-completed" : "lp-pill-not-started")}>
                         {hasEnrollment ? "Completed" : "Not started"}
                       </span>
                     </div>
-                    <div className="map-step-meta">
-                      Enroll in your first course.
-                    </div>
+                    <div className="map-step-meta">Enroll in your first course.</div>
                     <div className="map-step-detail">
-                      Browse the <strong>All Courses</strong> catalog, choose
-                      the training that fits your role, and click{" "}
-                      <strong>Enroll</strong>. Once you’re in at least one
-                      course, this step is checked off.
+                      Browse the <strong>All Courses</strong> catalog, choose the training that fits your role,
+                      and click <strong>Enroll</strong>.
                     </div>
                   </div>
                 </div>
 
                 {/* STEP 2 */}
-                <div
-                  className={
-                    "map-step lp-step" +
-                    (hasLessonProgress ? " map-step-active" : "")
-                  }
-                >
+                <div className={"map-step lp-step" + (hasLessonProgress ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div>
                     <div className="lp-step-header">
                       <span className="map-step-title">Step 2</span>
-                      <span
-                        className={
-                          "lp-step-pill " +
-                          (hasLessonProgress
-                            ? "lp-pill-in-progress"
-                            : "lp-pill-not-started")
-                        }
-                      >
+                      <span className={"lp-step-pill " + (hasLessonProgress ? "lp-pill-in-progress" : "lp-pill-not-started")}>
                         {hasLessonProgress ? "In progress" : "Not started"}
                       </span>
                     </div>
-                    <div className="map-step-meta">
-                      Complete all lessons in at least one course.
-                    </div>
+                    <div className="map-step-meta">Complete all lessons in at least one course.</div>
                     <div className="map-step-detail">
-                      Work through the lessons in your enrolled courses. When
-                      you finish every lesson in one course, this step is
-                      considered complete.
+                      Work through the lessons in your enrolled courses. When you finish lessons, this step progresses.
                     </div>
                   </div>
                 </div>
 
                 {/* STEP 3 */}
-                <div
-                  className={
-                    "map-step lp-step" +
-                    (hasCertificate ? " map-step-active" : "")
-                  }
-                >
+                <div className={"map-step lp-step" + (hasCertificate ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div>
                     <div className="lp-step-header">
                       <span className="map-step-title">Step 3</span>
-                      <span
-                        className={
-                          "lp-step-pill " +
-                          (hasCertificate
-                            ? "lp-pill-completed"
-                            : "lp-pill-locked")
-                        }
-                      >
+                      <span className={"lp-step-pill " + (hasCertificate ? "lp-pill-completed" : "lp-pill-locked")}>
                         {hasCertificate ? "Completed" : "Locked"}
                       </span>
                     </div>
-                    <div className="map-step-meta">
-                      Earn certificates and track CEUs.
-                    </div>
+                    <div className="map-step-meta">Earn certificates and track CEUs.</div>
                     <div className="map-step-detail">
-                      After you’ve completed eligible courses, certificates are
-                      generated on your <strong>Certificates</strong> page. Use
-                      them to document CEUs and compliance training.
+                      After completing eligible courses, certificates are generated on your <strong>Certificates</strong> page.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <p
-                className="small-block-text"
-                style={{
-                  marginTop: 16,
-                  maxWidth: 520,
-                  color: "#4b5563",
-                }}
-              >
-                As you enroll in courses, complete lessons, and earn
-                certificates, the steps above will highlight to show your path
-                through Anchorp Academy. Hover over each step to see more detail
-                about what it means.
+              <p className="small-block-text" style={{ marginTop: 16, maxWidth: 520, color: "#4b5563" }}>
+                As you enroll in courses, complete lessons, and earn certificates, the steps above will highlight your progress.
               </p>
             </>
           )}
         </section>
       </main>
 
-      {/* Scoped styles just for this page */}
+      {/* keep your <style jsx> exactly as-is below */}
+       {/* Scoped styles just for this page */}
       <style jsx>{`
         /* Override the green "map-block" just on this page */
         .map-block {
@@ -510,6 +461,7 @@ export default function LearningPathPage() {
           }
         }
       `}</style>
+      <style jsx>{`/* (unchanged styles) */`}</style>
     </div>
   );
 }

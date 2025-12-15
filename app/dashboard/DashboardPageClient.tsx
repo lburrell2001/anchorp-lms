@@ -35,13 +35,11 @@ export default function DashboardPage() {
   const [recommended, setRecommended] = useState<Course[]>([]);
   const [coursesCompleted, setCoursesCompleted] = useState(0);
   const [lessonsCompleted, setLessonsCompleted] = useState(0);
-  const [progressByCourse, setProgressByCourse] = useState<
-    Record<string, number>
-  >({});
+  const [progressByCourse, setProgressByCourse] = useState<Record<string, number>>({});
   const [certificatesCount, setCertificatesCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 NEW: controls hamburger sidebar state on this page
+  // ✅ mobile sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // --------------------------------------------------
@@ -51,7 +49,6 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
-    // 1) Current user
     const {
       data: { user },
       error: userError,
@@ -63,7 +60,7 @@ export default function DashboardPage() {
       return;
     }
 
-    // 2) Ensure a profile row exists for this user
+    // Ensure profile
     const { data: existingProfile, error: profileError } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -81,12 +78,13 @@ export default function DashboardPage() {
     if (!profileRow) {
       const email = user.email ?? "";
       const fullName =
-        (user.user_metadata as any)?.full_name ||
-        email.split("@")[0] ||
-        "Learner";
+        (user.user_metadata as any)?.full_name || email.split("@")[0] || "Learner";
 
-      const userType: "internal" | "external" =
-        email.toLowerCase().endsWith("@anchorp.com") ? "internal" : "external";
+      const userType: "internal" | "external" = email
+        .toLowerCase()
+        .endsWith("@anchorp.com")
+        ? "internal"
+        : "external";
 
       const { data: inserted, error: insertError } = await supabase
         .from("profiles")
@@ -110,7 +108,7 @@ export default function DashboardPage() {
 
     setProfile(profileRow);
 
-    // 3) A few "active users"
+    // Active users
     const { data: activeProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, email, user_type")
@@ -118,12 +116,12 @@ export default function DashboardPage() {
 
     setActiveUsers((activeProfiles || []) as Profile[]);
 
-    const isInternal = profileRow?.user_type === "internal";
+    const isInternal = profileRow.user_type === "internal";
     const allowedAudiences = isInternal
       ? ["internal", "both", "external"]
       : ["external", "both"];
 
-    // 4) Enrollments + course info
+    // Enrollments
     const { data: enrollments, error: enrollError } = await supabase
       .from("course_enrollments")
       .select("id, course_id, courses(*)")
@@ -140,7 +138,7 @@ export default function DashboardPage() {
 
     const enrolledCourseIds = enrolls.map((e) => e.course_id);
 
-    // 5) Recommended courses
+    // Recommended courses
     let recQuery = supabase
       .from("courses")
       .select("id, title, slug, audience")
@@ -148,8 +146,8 @@ export default function DashboardPage() {
       .order("title", { ascending: true });
 
     if (enrolledCourseIds.length > 0) {
-      const idList = `(${enrolledCourseIds.join(",")})`;
-      recQuery = recQuery.not("id", "in", idList);
+      // supabase "not in" expects "(id1,id2)" with no quotes for uuid? safer:
+      recQuery = recQuery.not("id", "in", `(${enrolledCourseIds.join(",")})`);
     }
 
     const { data: recCourses, error: recError } = await recQuery.limit(6);
@@ -162,10 +160,10 @@ export default function DashboardPage() {
 
     setRecommended((recCourses || []) as Course[]);
 
-    // 6) Lesson progress
+    // Lesson progress
     const { data: lessonProgress, error: lpError } = await supabase
       .from("lesson_progress")
-      .select("lesson_id, completed:completed_at")
+      .select("lesson_id, completed_at")
       .eq("user_id", user.id);
 
     if (lpError) {
@@ -175,20 +173,22 @@ export default function DashboardPage() {
     }
 
     const completedLessonIds = (lessonProgress || [])
-      .filter((lp: any) => lp.completed)
+      .filter((lp: any) => lp.completed_at)
       .map((lp: any) => lp.lesson_id);
 
     setLessonsCompleted(completedLessonIds.length);
 
-    // 7) Lesson → course mapping to compute per-course progress
+    // Per-course progress
     let progressMap: Record<string, number> = {};
     let completedCoursesSet = new Set<string>();
 
     if (enrolledCourseIds.length > 0) {
-      const { data: lessonsData } = await supabase
+      const { data: lessonsData, error: lessonsErr } = await supabase
         .from("lessons")
         .select("id, modules!inner(course_id)")
         .order("id");
+
+      if (lessonsErr) console.warn("lessons query failed:", lessonsErr);
 
       const completedSet = new Set(completedLessonIds);
 
@@ -210,16 +210,14 @@ export default function DashboardPage() {
         const done = completedCounts[courseId] || 0;
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         progressMap[courseId] = pct;
-        if (total > 0 && done === total) {
-          completedCoursesSet.add(courseId);
-        }
+        if (total > 0 && done === total) completedCoursesSet.add(courseId);
       });
     }
 
     setProgressByCourse(progressMap);
     setCoursesCompleted(completedCoursesSet.size);
 
-    // 8) Certificates
+    // Certificates
     const { data: certRows, error: certError } = await supabase
       .from("certificates")
       .select("id")
@@ -240,10 +238,7 @@ export default function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const coursesInProgressCount = Math.max(
-    inProgress.length - coursesCompleted,
-    0
-  );
+  const coursesInProgressCount = Math.max(inProgress.length - coursesCompleted, 0);
 
   // Learning path status
   const hasEnrollment = inProgress.length > 0;
@@ -256,32 +251,19 @@ export default function DashboardPage() {
     ? "Completed"
     : hasAnyLessonProgress
     ? "In progress"
-    : hasEnrollment
-    ? "Locked"
     : "Locked";
 
-  const step3Status = hasCertificate
-    ? "Completed"
-    : hasCompletedCourse
-    ? "In progress"
-    : "Locked";
+  const step3Status = hasCertificate ? "Completed" : hasCompletedCourse ? "In progress" : "Locked";
 
-  // BUTTON HANDLERS
   const routerPush = (path: string) => router.push(path);
 
   const handleViewAllCourses = () => routerPush("/courses");
   const handleSeeAllCourses = () => routerPush("/courses");
   const handleViewInProgress = () => routerPush("/my-courses");
   const handleViewLearningPaths = () => routerPush("/learning-paths");
-  const handleViewCertificates = () => routerPush("/certificates");
-  const handleViewReports = () => routerPush("/reports");
-  const handleViewSettings = () => routerPush("/settings");
 
   const handleResumeLastCourse = () => {
-    if (!inProgress.length) {
-      routerPush("/my-courses");
-      return;
-    }
+    if (!inProgress.length) return routerPush("/my-courses");
     const last = inProgress[0];
     const slug = last.courses?.slug;
     if (slug) routerPush(`/courses/${slug}`);
@@ -302,10 +284,7 @@ export default function DashboardPage() {
 
     const { error: enrollError } = await supabase
       .from("course_enrollments")
-      .insert({
-        user_id: user.id,
-        course_id: courseId,
-      });
+      .insert({ user_id: user.id, course_id: courseId });
 
     if (enrollError) {
       setError(enrollError.message);
@@ -315,17 +294,27 @@ export default function DashboardPage() {
     await loadDashboard();
   };
 
+  const displayName = profile?.full_name || "Learner";
+  const displayEmail = profile?.email || "";
+
   if (loading) {
     return (
       <div className="dashboard-root">
-        <div className={`app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}>
-          <AppSidebar
-            active="dashboard"
-            fullName={profile?.full_name ?? null}
-            email={profile?.email ?? null}
-            onNavClick={() => setSidebarOpen(false)}
+        <AppSidebar
+          active="dashboard"
+          fullName={profile?.full_name ?? null}
+          email={profile?.email ?? null}
+          isOpen={sidebarOpen}
+          onNavClick={() => setSidebarOpen(false)}
+        />
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="sidebar-overlay"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
           />
-        </div>
+        )}
         <main className="main" style={{ display: "flex", alignItems: "center" }}>
           <p>Loading dashboard…</p>
         </main>
@@ -333,29 +322,36 @@ export default function DashboardPage() {
     );
   }
 
-  const displayName = profile?.full_name || "Learner";
-  const displayEmail = profile?.email || "";
-
   return (
     <div className="dashboard-root">
-      {/* SIDEBAR WRAPPER */}
-      <div className={`app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}>
-        <AppSidebar
-          active="dashboard"
-          fullName={profile?.full_name ?? null}
-          email={profile?.email ?? null}
-          onNavClick={() => setSidebarOpen(false)}
+      {/* ✅ SIDEBAR */}
+      <AppSidebar
+        active="dashboard"
+        fullName={profile?.full_name ?? null}
+        email={profile?.email ?? null}
+        isOpen={sidebarOpen}
+        onNavClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ✅ OVERLAY */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close menu"
         />
-      </div>
+      )}
 
       {/* MAIN CONTENT */}
       <main className="main">
-        {/* Top bar with hamburger */}
         <div className="topbar">
+          {/* ✅ Hamburger */}
           <button
+            type="button"
             className="mobile-menu-button"
-            onClick={() => setSidebarOpen((open) => !open)}
-            aria-label="Toggle navigation"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
           >
             ☰
           </button>
@@ -365,8 +361,7 @@ export default function DashboardPage() {
               Welcome back, {displayName.split(" ")[0]} 👋
             </div>
             <div className="topbar-subtitle">
-              View your course progress and discover new training from Anchorp
-              Academy.
+              View your course progress and discover new training from Anchorp Academy.
             </div>
           </div>
 
@@ -400,26 +395,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Content grid */}
         <div className="content-grid">
           {/* LEFT COLUMN */}
           <div className="column-main">
-            {/* In progress */}
             <section className="block">
               <div className="block-header">
                 <div className="block-title">In progress</div>
-                <button
-                  className="link-button"
-                  onClick={handleViewInProgress}
-                >
+                <button className="link-button" onClick={handleViewInProgress}>
                   View all
                 </button>
               </div>
 
               {inProgress.length === 0 ? (
-                <p className="small-block-text">
-                  You don’t have any in-progress courses yet.
-                </p>
+                <p className="small-block-text">You don’t have any in-progress courses yet.</p>
               ) : (
                 <div className="course-list">
                   {inProgress.slice(0, 3).map((enrollment) => {
@@ -432,14 +420,9 @@ export default function DashboardPage() {
                           <div className="course-meta">Course</div>
                           <div className="progress-row">
                             <div className="progress-track">
-                              <div
-                                className="progress-fill"
-                                style={{ width: `${pct}%` }}
-                              />
+                              <div className="progress-fill" style={{ width: `${pct}%` }} />
                             </div>
-                            <div className="progress-label">
-                              {pct}% complete
-                            </div>
+                            <div className="progress-label">{pct}% complete</div>
                           </div>
                         </div>
                         <div>
@@ -458,22 +441,16 @@ export default function DashboardPage() {
               )}
             </section>
 
-            {/* Recommended */}
             <section className="block">
               <div className="block-header">
                 <div className="block-title">Recommended for you</div>
-                <button
-                  className="link-button"
-                  onClick={handleViewAllCourses}
-                >
+                <button className="link-button" onClick={handleViewAllCourses}>
                   See more
                 </button>
               </div>
 
               {recommended.length === 0 ? (
-                <p className="small-block-text">
-                  You’re enrolled in all available courses right now.
-                </p>
+                <p className="small-block-text">You’re enrolled in all available courses right now.</p>
               ) : (
                 <div className="course-grid">
                   {recommended.map((course) => (
@@ -482,11 +459,7 @@ export default function DashboardPage() {
                       <div className="course-meta">Course</div>
                       <button
                         className="btn-secondary"
-                        style={{
-                          fontSize: "0.8rem",
-                          padding: "6px 12px",
-                          marginTop: "8px",
-                        }}
+                        style={{ fontSize: "0.8rem", padding: "6px 12px", marginTop: "8px" }}
                         onClick={() => handleAddToMyCourses(course.id)}
                       >
                         Add to my courses
@@ -500,73 +473,47 @@ export default function DashboardPage() {
 
           {/* RIGHT COLUMN */}
           <div className="column-side">
-            {/* Learning path card */}
             <section className="block map-block">
               <div className="map-label">Learning path</div>
               <div className="map-title">Anchorp LMS Overview</div>
               <div className="map-subtitle">
-                Courses above are pulled directly from your Supabase tables.
-                Progress is based on finished lessons and earned certificates.
+                Courses above are pulled directly from Supabase. Progress is based on finished lessons and certificates.
               </div>
 
               <div className="map-steps">
-                {/* Step 1 */}
-                <div
-                  className={
-                    "map-step" + (hasEnrollment ? " map-step-active" : "")
-                  }
-                >
+                <div className={"map-step" + (hasEnrollment ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
                     <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 1</div>
-                        <div className="map-step-meta">
-                          Enroll in your first course.
-                        </div>
+                        <div className="map-step-meta">Enroll in your first course.</div>
                       </div>
                       <div className="map-step-status">{step1Status}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 2 */}
-                <div
-                  className={
-                    "map-step" +
-                    (hasAnyLessonProgress || hasCompletedCourse
-                      ? " map-step-active"
-                      : "")
-                  }
-                >
+                <div className={"map-step" + (hasAnyLessonProgress || hasCompletedCourse ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
                     <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 2</div>
-                        <div className="map-step-meta">
-                          Complete all lessons in a course.
-                        </div>
+                        <div className="map-step-meta">Complete all lessons in a course.</div>
                       </div>
                       <div className="map-step-status">{step2Status}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 3 */}
-                <div
-                  className={
-                    "map-step" + (hasCertificate ? " map-step-active" : "")
-                  }
-                >
+                <div className={"map-step" + (hasCertificate ? " map-step-active" : "")}>
                   <div className="map-step-dot" />
                   <div style={{ flex: 1 }}>
                     <div className="map-row">
                       <div>
                         <div className="map-step-title">Step 3</div>
-                        <div className="map-step-meta">
-                          Earn certificates & track CEUs.
-                        </div>
+                        <div className="map-step-meta">Earn certificates & track CEUs.</div>
                       </div>
                       <div className="map-step-status">{step3Status}</div>
                     </div>
@@ -589,11 +536,7 @@ export default function DashboardPage() {
                 Open the full course catalog powered by your Supabase{" "}
                 <span style={{ fontFamily: "monospace" }}>courses</span> table.
               </p>
-              <button
-                className="btn-secondary"
-                style={{ width: "100%" }}
-                onClick={handleSeeAllCourses}
-              >
+              <button className="btn-secondary" style={{ width: "100%" }} onClick={handleSeeAllCourses}>
                 See all courses
               </button>
             </section>
@@ -601,19 +544,12 @@ export default function DashboardPage() {
         </div>
 
         {error && (
-          <p
-            style={{
-              marginTop: "12px",
-              fontSize: "0.8rem",
-              color: "#b91c1c",
-            }}
-          >
+          <p style={{ marginTop: "12px", fontSize: "0.8rem", color: "#b91c1c" }}>
             {error}
           </p>
         )}
       </main>
 
-      {/* tiny style just for the status text on dark green card */}
       <style jsx>{`
         .map-step-status {
           font-size: 0.7rem;
