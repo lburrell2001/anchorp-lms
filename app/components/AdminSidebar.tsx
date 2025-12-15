@@ -7,6 +7,7 @@ type AdminSidebarProps = {
   active: "overview" | "users" | "courses" | "activity";
   fullName: string | null;
   email: string | null;
+  onNavClick?: () => void; // ✅ add this (optional)
 };
 
 function getInitials(name: string | null | undefined) {
@@ -23,6 +24,7 @@ export default function AdminSidebar({
   active,
   fullName,
   email,
+  onNavClick,
 }: AdminSidebarProps) {
   const router = useRouter();
 
@@ -32,34 +34,35 @@ export default function AdminSidebar({
   const itemClass = (key: AdminSidebarProps["active"]) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     try {
       console.log("Logging out admin…");
       const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error("Error signing out:", error.message);
-      }
+      if (error) console.error("Error signing out:", error.message);
     } catch (err) {
       console.error("Unexpected error signing out:", err);
     } finally {
       // Hard redirect so ALL client state/layout resets
       window.location.href = "/login";
-      // (if you prefer SPA style you could do router.push("/login"), 
-      // but the hard reload is safest here)
     }
   };
 
+  const go = (path: string) => {
+    router.push(path);
+    onNavClick?.(); // ✅ close menu if provided (mobile)
+  };
 
   return (
     <aside className="sidebar">
       {/* Close button (mobile only) */}
-<button
-  className="sidebar-close-button"
-  onClick={onNavClick} // closes menu
->
-  ✕
-</button>
+      <button
+        type="button"
+        className="sidebar-close-button"
+        onClick={() => onNavClick?.()}
+        aria-label="Close menu"
+      >
+        ✕
+      </button>
 
       {/* Admin identity */}
       <div className="sidebar-profile">
@@ -85,34 +88,22 @@ export default function AdminSidebar({
 
       {/* Admin navigation */}
       <nav className="sidebar-nav">
-        <button
-          type="button"
-          className={itemClass("overview")}
-          onClick={() => router.push("/admin")}
-        >
+        <button type="button" className={itemClass("overview")} onClick={() => go("/admin")}>
           Overview
         </button>
 
-        <button
-          type="button"
-          className={itemClass("users")}
-          onClick={() => router.push("/admin/users")}
-        >
+        <button type="button" className={itemClass("users")} onClick={() => go("/admin/users")}>
           Users &amp; Roles
         </button>
 
-        <button
-          type="button"
-          className={itemClass("courses")}
-          onClick={() => router.push("/admin/courses")}
-        >
+        <button type="button" className={itemClass("courses")} onClick={() => go("/admin/courses")}>
           Courses &amp; Enrollments
         </button>
 
         <button
           type="button"
           className={itemClass("activity")}
-          onClick={() => router.push("/admin/activity")}
+          onClick={() => go("/admin/activity")}
         >
           Activity &amp; Progress
         </button>
