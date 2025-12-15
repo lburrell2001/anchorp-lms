@@ -7,7 +7,10 @@ type AdminSidebarProps = {
   active: "overview" | "users" | "courses" | "activity";
   fullName: string | null;
   email: string | null;
-  onNavClick?: () => void; // ✅ add this (optional)
+
+  // mobile dropdown support
+  isOpen?: boolean;        // ✅ controls slide-down wrapper
+  onNavClick?: () => void; // ✅ closes menu (optional)
 };
 
 function getInitials(name: string | null | undefined) {
@@ -24,6 +27,7 @@ export default function AdminSidebar({
   active,
   fullName,
   email,
+  isOpen = false,
   onNavClick,
 }: AdminSidebarProps) {
   const router = useRouter();
@@ -34,88 +38,91 @@ export default function AdminSidebar({
   const itemClass = (key: AdminSidebarProps["active"]) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
+  const closeMenu = () => onNavClick?.();
+
+  const go = (path: string) => {
+    closeMenu();          // ✅ close first (prevents overlay/tap weirdness)
+    router.push(path);
+  };
+
   const handleLogout = async () => {
+    // ✅ close menu immediately so overlay can’t block taps
+    closeMenu();
+
     try {
-      console.log("Logging out admin…");
       const { error } = await supabase.auth.signOut();
       if (error) console.error("Error signing out:", error.message);
     } catch (err) {
       console.error("Unexpected error signing out:", err);
     } finally {
-      // Hard redirect so ALL client state/layout resets
-      window.location.href = "/login";
+      // ✅ more reliable than setting href (esp. on mobile)
+      window.location.assign("/login");
     }
   };
 
-  const go = (path: string) => {
-    router.push(path);
-    onNavClick?.(); // ✅ close menu if provided (mobile)
-  };
-
   return (
-    <aside className="sidebar">
-      {/* Close button (mobile only) */}
-      <button
-        type="button"
-        className="sidebar-close-button"
-        onClick={() => onNavClick?.()}
-        aria-label="Close menu"
-      >
-        ✕
-      </button>
+    // ✅ wrapper matches your mobile CSS approach (like .app-sidebar)
+    <div className={`admin-sidebar ${isOpen ? "admin-sidebar-open" : ""}`}>
+      <aside className="sidebar">
+        {/* Close button (mobile only) */}
+        <button
+          type="button"
+          className="sidebar-close-button"
+          onClick={closeMenu}
+          aria-label="Close menu"
+        >
+          ✕
+        </button>
 
-      {/* Admin identity */}
-      <div className="sidebar-profile">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div className="avatar-circle">{getInitials(displayName)}</div>
-          <div>
-            <div className="profile-name">{displayName}</div>
-            <div className="profile-email">{displayEmail}</div>
-            <div
-              style={{
-                fontSize: 11,
-                marginTop: 4,
-                color: "#9ce2bb",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              Admin Console
+        {/* Admin identity */}
+        <div className="sidebar-profile">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="avatar-circle">{getInitials(displayName)}</div>
+            <div>
+              <div className="profile-name">{displayName}</div>
+              <div className="profile-email">{displayEmail}</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  marginTop: 4,
+                  color: "#9ce2bb",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Admin Console
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Admin navigation */}
-      <nav className="sidebar-nav">
-        <button type="button" className={itemClass("overview")} onClick={() => go("/admin")}>
-          Overview
-        </button>
+        {/* Admin navigation */}
+        <nav className="sidebar-nav">
+          <button type="button" className={itemClass("overview")} onClick={() => go("/admin")}>
+            Overview
+          </button>
 
-        <button type="button" className={itemClass("users")} onClick={() => go("/admin/users")}>
-          Users &amp; Roles
-        </button>
+          <button type="button" className={itemClass("users")} onClick={() => go("/admin/users")}>
+            Users &amp; Roles
+          </button>
 
-        <button type="button" className={itemClass("courses")} onClick={() => go("/admin/courses")}>
-          Courses &amp; Enrollments
-        </button>
+          <button type="button" className={itemClass("courses")} onClick={() => go("/admin/courses")}>
+            Courses &amp; Enrollments
+          </button>
 
-        <button
-          type="button"
-          className={itemClass("activity")}
-          onClick={() => go("/admin/activity")}
-        >
-          Activity &amp; Progress
-        </button>
-      </nav>
+          <button type="button" className={itemClass("activity")} onClick={() => go("/admin/activity")}>
+            Activity &amp; Progress
+          </button>
+        </nav>
 
-      {/* Logout */}
-      <div className="sidebar-footer" style={{ marginTop: "auto" }}>
-        <div className="sidebar-footer-title">Account</div>
-        <button type="button" className="nav-item" onClick={handleLogout}>
-          Log out
-        </button>
-      </div>
-    </aside>
+        {/* Logout */}
+        <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+          <div className="sidebar-footer-title">Account</div>
+          <button type="button" className="nav-item" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      </aside>
+    </div>
   );
 }
