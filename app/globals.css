@@ -931,3 +931,37 @@ body {
     padding: 16px;
   }
 }
+@media (max-width: 768px) {
+  .app-sidebar,
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    max-height: 70vh;
+    transform: translateY(-100%);
+    transition: transform 0.25s ease-out;
+    z-index: 50;
+    background: transparent;
+  }
+
+  .app-sidebar-open,
+  .admin-sidebar-open {
+    transform: translateY(0);
+  }
+
+  .sidebar {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 0 0 16px 16px;
+    padding-top: 40px;
+  }
+
+  .sidebar-close-button {
+    display: block;
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 60;
+  }
+}

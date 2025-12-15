@@ -45,6 +45,15 @@ export default function CertificatesPage() {
       if (userError) throw userError;
       if (!user) throw new Error("You must be signed in to view certificates.");
 
+      const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (!session) {
+  router.replace("/login");
+  return;
+}
+
       // ---------- PROFILE (for sidebar) ----------
       const { data: existingProfile, error: profileError } = await supabase
         .from("profiles")

@@ -41,7 +41,7 @@ export default function AppSidebar({
   const displayEmail = email || "";
   const initials = getInitials(fullName);
 
-  const navItems: { key: SidebarKey; label: string; href: string }[] = [
+  const navItems = [
     { key: "dashboard", label: "Dashboard", href: "/dashboard" },
     { key: "my-courses", label: "My Courses", href: "/my-courses" },
     { key: "all-courses", label: "All Courses", href: "/courses" },
@@ -52,66 +52,63 @@ export default function AppSidebar({
   const itemClass = (key: SidebarKey) =>
     key === active ? "nav-item nav-item-active" : "nav-item";
 
+  const handleNavClick = (href: string) => {
+    router.push(href);
+    onNavClick?.();
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Error signing out:", err);
     } finally {
-      // full reload so state/layout reset
-      window.location.href = "/login";
+      window.location.assign("/login");
     }
   };
 
-  const handleNavClick = (href: string) => {
-    router.push(href);
-    onNavClick?.(); // 🔹 close sidebar on mobile, if parent passed this
-  };
-
   return (
-  <aside className="sidebar">
-    {/* ✕ Close button (mobile only) */}
-    <button
-      type="button"
-      className="sidebar-close-button"
-      onClick={() => onNavClick?.()}
-      aria-label="Close menu"
-    >
-      ✕
-    </button>
-
-    {/* Profile section */}
-    <div className="sidebar-profile">
-      <div className="avatar-circle">{initials}</div>
-      <div>
-        <div className="profile-name">{displayName}</div>
-        {displayEmail && <div className="profile-email">{displayEmail}</div>}
-      </div>
-    </div>
-
-    {/* Navigation */}
-    <nav className="sidebar-nav">
-      {navItems.map((item) => (
+    <div className="app-sidebar app-sidebar-open">
+      <aside className="sidebar">
+        {/* ✕ Close button */}
         <button
-          key={item.key}
           type="button"
-          className={itemClass(item.key)}
-          onClick={() => handleNavClick(item.href)}
+          className="sidebar-close-button"
+          onClick={() => onNavClick?.()}
+          aria-label="Close menu"
         >
-          {item.label}
+          ✕
         </button>
-      ))}
-    </nav>
 
-    {/* Footer */}
-    <div className="sidebar-footer" style={{ marginTop: "auto" }}>
-      <div className="sidebar-footer-title">Account</div>
+        {/* Profile */}
+        <div className="sidebar-profile">
+          <div className="avatar-circle">{initials}</div>
+          <div>
+            <div className="profile-name">{displayName}</div>
+            {displayEmail && <div className="profile-email">{displayEmail}</div>}
+          </div>
+        </div>
 
-      <button type="button" className="nav-item" onClick={handleLogout}>
-        Log Out
-      </button>
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={itemClass(item.key)}
+              onClick={() => handleNavClick(item.href)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+          <div className="sidebar-footer-title">Account</div>
+          <button type="button" className="nav-item" onClick={handleLogout}>
+            Log Out
+          </button>
+        </div>
+      </aside>
     </div>
-  </aside>
-);
-
+  );
 }
