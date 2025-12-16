@@ -28,7 +28,8 @@ export declare const isPlainObject: (value: object) => boolean;
  * Ensures all vector values are valid 32-bit floats
  *
  * @param values - Array of numbers to normalize
- * @returns Normalized float32 array
+ * @returns 
+ *  float32 array
  */
 export declare const normalizeToFloat32: (values: number[]) => number[];
 /**

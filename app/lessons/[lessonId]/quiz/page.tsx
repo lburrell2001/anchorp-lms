@@ -50,6 +50,37 @@ type Profile = {
   user_type: "internal" | "external" | "both" | null;
 };
 
+// ------------------------------
+// Solution links (course title -> URL)
+// ------------------------------
+const SOLUTION_URLS: Record<string, string> = {
+  "Basics of Snow Retention on Low-Slope Roofs":
+    "https://www.anchorp.com/basics-of-snow-retention-on-low-slope-roofs",
+  "Fastener Selection for Commercial Rooftop Equipment Securement":
+    "https://www.anchorp.com/fastener-selection-of-commercial-rooftop-equipment-securement",
+  "Benefits of Solar Investment Tax Credit":
+    "https://www.anchorp.com/benefits-of-solar-investment-tax-credit-course",
+};
+
+// Helpful normalizer in case titles have extra spaces/case differences
+function normalizeTitle(s: string) {
+  return (s || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function getSolutionUrl(courseTitle: string | null | undefined) {
+  if (!courseTitle) return null;
+
+  // Try exact match first
+  if (SOLUTION_URLS[courseTitle]) return SOLUTION_URLS[courseTitle];
+
+  // Fuzzy match by normalized title
+  const n = normalizeTitle(courseTitle);
+  const foundKey = Object.keys(SOLUTION_URLS).find(
+    (k) => normalizeTitle(k) === n
+  );
+  return foundKey ? SOLUTION_URLS[foundKey] : null;
+}
+
 export default function LessonQuizPage() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const router = useRouter();
@@ -230,7 +261,7 @@ export default function LessonQuizPage() {
 
       // existing certificate for this course + user (if any)
       if (courseRow) {
-        const { data: certRow, error: certError } = await supabase
+        const { data: certRow, error: certErr } = await supabase
           .from("certificates")
           .select(
             `
@@ -245,8 +276,8 @@ export default function LessonQuizPage() {
           .eq("course_id", courseRow.id)
           .maybeSingle();
 
-        if (certError && certError.code !== "PGRST116") {
-          console.error("Error loading certificate:", certError);
+        if (certErr && certErr.code !== "PGRST116") {
+          console.error("Error loading certificate:", certErr);
         }
 
         if (certRow) {
@@ -254,6 +285,22 @@ export default function LessonQuizPage() {
           setPassed(true);
           setResultMessage(
             "You have already passed this quiz and earned a certificate."
+          );
+
+          // Prefill certificate inputs for convenience
+          const defaultName =
+            profileRow?.full_name ||
+            (profileRow?.email ?? "").split("@")[0] ||
+            "Learner";
+          const courseName = courseRow?.title ?? "this course";
+          setNameText(defaultName);
+          setCompletionLine(`for completing ${courseName}`);
+          setCompletionDate(
+            new Date().toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })
           );
         }
       }
@@ -413,9 +460,17 @@ export default function LessonQuizPage() {
     }
   };
 
+  // NEW: open the appropriate solution page for this course
+  const handleOpenSolution = () => {
+    const url = getSolutionUrl(course?.title);
+    if (!url) return;
+    window.open(url, "_blank"); // keeps them in LMS and opens anchorp.com
+  };
+
   const fullName = profile?.full_name ?? null;
   const email = profile?.email ?? null;
   const courseTitle = course?.title ?? "Course";
+  const solutionUrl = getSolutionUrl(course?.title);
 
   // --------------------------------------------------
   // RENDER
@@ -569,6 +624,39 @@ export default function LessonQuizPage() {
                   }}
                 >
                   {resultMessage}
+                </div>
+              )}
+
+              {/* NEW: Solution CTA (after passing) */}
+              {passed && solutionUrl && (
+                <div
+                  style={{
+                    marginTop: "14px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    onClick={handleOpenSolution}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "999px",
+                      border: "none",
+                      backgroundColor: "#111827",
+                      color: "#fff",
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Check out the solution on AnchorP.com →
+                  </button>
+
+                  <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                    Opens in a new tab
+                  </span>
                 </div>
               )}
 

@@ -214,7 +214,8 @@ body {
 /* Shared sidebar (learner + admin) */
 .sidebar {
   width: 260px;
-  height: 100vh;
+  min-height: 100vh;  
+  height: 100%;
   background: #11500f; /* deep green */
   color: #ffffff;
   padding: 24px 18px;
